@@ -89,9 +89,7 @@ async def upload_files(
                 s3_key = f"{user_id}/{str(ObjectId())}.pdf"
 
                 aws_client.s3_client.put_object(
-                    Bucket=aws_client.bucket_name,
-                    Key=s3_key,
-                    Body=content,
+                    Bucket=aws_client.bucket_name, Key=s3_key, Body=content,
                     ContentType=file.content_type,
                     Metadata={
                         "original_filename": file.filename,
@@ -101,10 +99,8 @@ async def upload_files(
                 )
                 uploaded_files.append(
                     {
-                        "original_filename": file.filename,
-                        "s3_key": s3_key,
-                        "size": file_size,
-                        "content_type": file.content_type,
+                        "original_filename": file.filename, "s3_key": s3_key,
+                        "size": file_size, "content_type": file.content_type,
                     }
                 )
 
@@ -113,10 +109,8 @@ async def upload_files(
                     {"filename": file.filename, "error": f"Upload failed: {str(e)}"}
                 )
         return {
-            "uploaded": len(uploaded_files),
-            "failed": len(failed_files),
-            "uploaded_files": uploaded_files,
-            "failed_files": failed_files,
+            "uploaded": len(uploaded_files), "failed": len(failed_files),
+            "uploaded_files": uploaded_files, "failed_files": failed_files,
         }
 
     except Exception as e:

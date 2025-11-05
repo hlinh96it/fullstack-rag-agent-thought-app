@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from src.config import Settings
 from src.services.chat.factory import make_chat_client
 from src.services.database.factory import make_database_client, make_aws_client
+from src.services.parser.factory import make_parser_service
 
 from src.router.user import user_router
 from src.router.chat import chat_router
@@ -29,9 +30,10 @@ async def lifespan(app: FastAPI):
     logger.info(f"Starting RAG API...")
 
     settings = Settings()
-    app.state.mongo_client = make_database_client(settings)  
+    app.state.mongo_client = make_database_client(settings)
     app.state.chat_client = make_chat_client(settings, client_type="openai")
     app.state.aws_client = make_aws_client(settings)
+    app.state.parser_client = make_parser_service(settings)
 
     yield
 
@@ -50,6 +52,5 @@ app.add_middleware(
 app.include_router(user_router, prefix="/user")
 app.include_router(chat_router, prefix="/chat")
 app.include_router(ask_router, prefix="/ask")
-app.include_router(s3_router, prefix='/s3')
-app.include_router(doc_router, prefix='/doc')
-
+app.include_router(s3_router, prefix="/s3")
+app.include_router(doc_router, prefix="/doc")

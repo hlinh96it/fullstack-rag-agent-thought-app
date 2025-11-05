@@ -104,7 +104,7 @@ const Sidebar = () => {
                     ))}
             </div>
 
-            {/* Credit purchase option */}
+            {/* Uploaded Documents */}
             <div className="relative mt-auto mb-4 p-0.5 rounded-lg bg-linear-to-r from-purple-300 via-blue-300 to-green-300">
                 <Card
                     onClick={() => navigate("/documents")}

@@ -1,7 +1,7 @@
 from typing import List, Annotated, Optional
 from pydantic import BaseModel, Field, BeforeValidator, ConfigDict
 
-from .document import Document
+from ..document.models import Document
 
 PyObjectId = Annotated[str, BeforeValidator(str)]
 

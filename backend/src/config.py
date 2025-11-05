@@ -1,7 +1,10 @@
+from typing import Optional
 from pathlib import Path
 
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from docling_core.types.doc.base import ImageRefMode
 
 
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -28,7 +31,7 @@ class OpenAISettings(BaseConfigSettings):
     )
 
     openai_api_key: str = ""
-    model_name: str = ''
+    model_name: str = ""
     temperature: float = 0.7
     timeout: int = 300
 
@@ -73,6 +76,16 @@ class ParserSettings(BaseConfigSettings):
     max_file_size_mb: int = 20
     do_orc: bool = False
     do_table_structure: bool = True
+
+    picture_prompt: str = "Describe this image in sentences in a single paragraph."
+    image_scale: int = 2
+
+    tokenizer_model_id: str = "sentence-transformers/all-MiniLM-L6-v2"
+    max_tokens: int = 512
+    image_mode: ImageRefMode = ImageRefMode.PLACEHOLDER
+    image_placeholder: str = ""
+    mark_annotation: bool = True
+    include_annotation: bool = True
 
 
 class Settings(BaseConfigSettings):

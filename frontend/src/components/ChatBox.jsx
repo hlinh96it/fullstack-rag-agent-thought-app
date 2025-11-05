@@ -12,7 +12,7 @@ import { toast } from 'sonner'
 
 const ChatBox = () => {
     const containerRef = useRef(null)
-    const { selectedChat, setSelectedChat, chats, setChats, user } = useAppContext()
+    const { selectedChat, setSelectedChat, chats, setChats, user, fetchUser } = useAppContext()
     const [messages, setMessages] = useState([])
     const [prompt, setPrompt] = useState('')
     const [loading, setLoading] = useState(false)
@@ -73,6 +73,8 @@ const ChatBox = () => {
                     user._id, selectedChat._id,
                     assistantMessage
                 )
+                // Refresh user data to sync with database
+                await fetchUser(false)
             } catch (error) {
                 console.error('Failed to save assistant message:', error);
             }
