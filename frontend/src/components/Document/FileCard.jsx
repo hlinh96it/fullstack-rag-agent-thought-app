@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { FileText, Download, Trash2, BadgeCheckIcon, BadgeXIcon, Calendar, RulerDimensionLine, Loader2 } from 'lucide-react';
+import { FileText, Download, Trash2, BadgeCheckIcon, BadgeXIcon, Calendar, RulerDimensionLine, Loader2, Sparkles, Layers } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 const FileCard = ({ file, onDownload, onDelete }) => {
@@ -15,41 +15,54 @@ const FileCard = ({ file, onDownload, onDelete }) => {
                             {file.title.split('/').pop()}
                         </p>
                         <p className="text-xs text-gray-500 mt-1 space-x-2">
-                            {file.indexed ? (
-                                <Badge variant='secondary' className="bg-blue-500 text-white dark:bg-blue-600">
-                                    <BadgeCheckIcon /> Indexed
-                                </Badge>
-                            ) : (
-                                <Badge variant='secondary' className="bg-red-500 text-white dark:bg-red-600">
-                                    <BadgeXIcon /> Not Indexed
-                                </Badge>
-                            )}
-                            {file.chunked === 'processing' ? (
-                                <Badge variant='secondary' className="bg-yellow-500 text-white dark:bg-yellow-600">
+                            {/* Chunking Status */}
+                            {file.chunked === false ? (
+                                <Badge variant='secondary' className="bg-purple-500 text-white dark:bg-purple-600">
+                                    <Sparkles className="h-3 w-3 mr-1" />
                                     <Loader2 className="h-3 w-3 animate-spin mr-1" /> Chunking...
                                 </Badge>
                             ) : file.chunked === true ? (
-                                <Badge variant='secondary' className="bg-blue-500 text-white dark:bg-blue-600">
-                                    <BadgeCheckIcon /> Chunked
+                                <Badge variant='secondary' className="bg-green-500 text-white dark:bg-green-600">
+                                    <BadgeCheckIcon className="h-3 w-3 mr-1" /> Chunked
                                 </Badge>
                             ) : (
-                                <Badge variant='secondary' className="bg-red-500 text-white dark:bg-red-600">
-                                    <BadgeXIcon /> Not Chunked
+                                <Badge variant='secondary' className="bg-gray-500 text-white dark:bg-gray-600">
+                                    <BadgeXIcon className="h-3 w-3 mr-1" /> Chunk Status Unknown
                                 </Badge>
                             )}
+
+                            {/* Indexing Status */}
+                            {file.chunked === true && file.indexed === false ? (
+                                <Badge variant='secondary' className="bg-orange-500 text-white dark:bg-orange-600">
+                                    <Layers className="h-3 w-3 mr-1" />
+                                    <Loader2 className="h-3 w-3 animate-spin mr-1" /> Indexing...
+                                </Badge>
+                            ) : file.indexed === true ? (
+                                <Badge variant='secondary' className="bg-blue-500 text-white dark:bg-blue-600">
+                                    <BadgeCheckIcon className="h-3 w-3 mr-1" /> Indexed
+                                </Badge>
+                            ) : file.chunked === true && file.indexed !== false ? (
+                                <Badge variant='secondary' className="bg-gray-500 text-white dark:bg-gray-600">
+                                    <BadgeXIcon className="h-3 w-3 mr-1" /> Index Status Unknown
+                                </Badge>
+                            ) : null}
+
+                            {/* File Size */}
                             {file.size ? (
                                 <Badge variant='secondary'>
-                                    <RulerDimensionLine /> {(file.size / 1024).toFixed(2)} KB
+                                    <RulerDimensionLine className="h-3 w-3 mr-1" /> {(file.size / 1024).toFixed(2)} MB
                                 </Badge>
                             ) : (
-                                <Badge>Size unknown</Badge>
+                                <Badge variant='secondary'>Size unknown</Badge>
                             )}
+
+                            {/* Upload Date */}
                             {file.uploaded_date ? (
                                 <Badge variant='secondary'>
-                                    <Calendar /> Uploaded date: {new Date(file.uploaded_date).toLocaleDateString()}
+                                    <Calendar className="h-3 w-3 mr-1" /> {new Date(file.uploaded_date * 1000).toLocaleDateString()}
                                 </Badge>
                             ) : (
-                                <Badge><Calendar /> Date unknown</Badge>
+                                <Badge variant='secondary'><Calendar className="h-3 w-3 mr-1" /> Date unknown</Badge>
                             )}
                         </p>
                     </div>

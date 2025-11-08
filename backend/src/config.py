@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from docling_core.types.doc.base import ImageRefMode
+from langchain_docling.loader import ExportType
 
 
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -33,7 +34,7 @@ class OpenAISettings(BaseConfigSettings):
     openai_api_key: str = ""
     model_name: str = ""
     temperature: float = 0.7
-    timeout: int = 300
+    timeout: int = 3000
 
 
 class MongoDBSettings(BaseConfigSettings):
@@ -64,6 +65,21 @@ class AWSSettings(BaseConfigSettings):
     bucket_name: str = ""
 
 
+class MilvusDBSettings(BaseConfigSettings):
+    model_config = SettingsConfigDict(
+        env_file=[".env", str(ENV_FILE_PATH)],
+        extra="ignore",
+        frozen=True,
+        env_nested_delimiter="MILVUS__",
+        case_sensitive=False,
+    )
+    uri: str = ""
+    database_name: str = ""
+    collection_name: str = ""
+    namespace: str = ""
+    api_key: str = ""
+
+
 class ParserSettings(BaseConfigSettings):
     model_config = SettingsConfigDict(
         env_file=[".env", str(ENV_FILE_PATH)],
@@ -76,6 +92,7 @@ class ParserSettings(BaseConfigSettings):
     max_file_size_mb: int = 20
     do_orc: bool = False
     do_table_structure: bool = True
+    export_type: ExportType = ExportType.DOC_CHUNKS
 
     picture_prompt: str = "Describe this image in sentences in a single paragraph."
     image_scale: int = 2
@@ -88,10 +105,25 @@ class ParserSettings(BaseConfigSettings):
     include_annotation: bool = True
 
 
+class JinaEmbeddingClient(BaseConfigSettings):
+    model_config = SettingsConfigDict(
+        env_file=[".env", str(ENV_FILE_PATH)],
+        extra="ignore",
+        frozen=True,
+        env_nested_delimiter="JINA__",
+        case_sensitive=False,
+    )
+    embedding_url: str = ""
+    jina_api_key: str = ""
+    model_name: str = ""
+
+
 class Settings(BaseConfigSettings):
     openai: OpenAISettings = Field(default_factory=OpenAISettings)
     mongo_db: MongoDBSettings = Field(default_factory=MongoDBSettings)
     aws: AWSSettings = Field(default_factory=AWSSettings)
-    parser: ParserSettings = Field(default_factory=ParserSettings)
+    milvus: MilvusDBSettings = Field(default_factory=MilvusDBSettings)
 
+    parser: ParserSettings = Field(default_factory=ParserSettings)
+    jina: JinaEmbeddingClient = Field(default_factory=JinaEmbeddingClient)
     api_server: str = "http://localhost:8000"

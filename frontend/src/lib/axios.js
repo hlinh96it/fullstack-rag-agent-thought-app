@@ -3,10 +3,10 @@ import axios from "axios";
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 // Create base axios instance with common config
-const createApiClient = (baseURL) => {
+const createApiClient = (baseURL, customTimeout = 30000) => {
 	const client = axios.create({
 		baseURL,
-		timeout: 10000,
+		timeout: customTimeout,
 		headers: {
 			"Content-Type": "application/json",
 		},
@@ -37,7 +37,7 @@ const createApiClient = (baseURL) => {
 };
 
 export const apiUser = createApiClient(`${API_BASE_URL}/user`);
-export const apiChat = createApiClient(`${API_BASE_URL}/chat`);
-export const apiAsk = createApiClient(`${API_BASE_URL}/ask`);
-export const apiS3 = createApiClient(`${API_BASE_URL}/s3`)
-export const apiDoc = createApiClient(`${API_BASE_URL}/doc`)
+export const apiChat = createApiClient(`${API_BASE_URL}/chat`, 10000); // 10s for chat operations
+export const apiAsk = createApiClient(`${API_BASE_URL}/ask`, 10000); // 10s for ask operations
+export const apiS3 = createApiClient(`${API_BASE_URL}/s3`, 10000); // 10s for S03 operations
+export const apiDoc = createApiClient(`${API_BASE_URL}/doc`, 600000); // 600s for document operations

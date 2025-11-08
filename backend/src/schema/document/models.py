@@ -67,9 +67,6 @@ class Document(BaseModel):
         default=None,
         description="Whether the document is chunked (True/False) or 'processing' if chunking in progress",
     )
-    chunk_data: Optional[ParsedDocument] = Field(
-        default=None, description="Parsed document data with metadata and content"
-    )
     chunk_error: Optional[str] = Field(
         default=None, description="Error message if chunking failed"
     )

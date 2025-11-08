@@ -3,14 +3,18 @@ from fastapi import APIRouter, HTTPException, Body, File, UploadFile, Background
 from bson import ObjectId
 import tempfile
 import os
-import asyncio
 from pathlib import Path
 from datetime import datetime
 import logging
 
 from src.schema.document.models import Document, ParsedDocument
 from src.schema.user.models import User
-from src.dependencies import MongoDependency, ParserDependency, AWSDependency
+from src.dependencies import (
+    MongoDependency,
+    ParserDependency,
+    AWSDependency,
+    MilvusDependency,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +47,6 @@ async def get_all_docs(user_id: str, mongo_client: MongoDependency) -> List[Docu
                 "doc_list.chunked": 1,
                 "doc_list.chunk_error": 1,
                 # Exclude doc_list.chunk_data entirely for maximum performance
-                # We'll check if it exists and set chunked status accordingly
             },
         )
 
@@ -51,38 +54,15 @@ async def get_all_docs(user_id: str, mongo_client: MongoDependency) -> List[Docu
             response["_id"] = str(response["_id"])
             user_data = User(**response)
 
-            # Check if chunk_data exists in MongoDB and update chunked status
-            for doc in user_data.doc_list:
-                if doc.chunked == "processing" or doc.chunked is False:
-                    # Double-check if chunk_data actually exists in MongoDB
-                    doc_in_db = await mongo_client.collection.find_one(
-                        {"_id": ObjectId(user_id), "doc_list._id": ObjectId(doc.id)},
-                        {"doc_list.$": 1},
-                    )
-
-                    if (
-                        doc_in_db
-                        and "doc_list" in doc_in_db
-                        and len(doc_in_db["doc_list"]) > 0
-                    ):
-                        db_doc = doc_in_db["doc_list"][0]
-                        # If chunk_data exists in DB, parsing is complete
-                        if db_doc.get("chunk_data") is not None:
-                            # Update the status to True if chunk_data exists
-                            await mongo_client.collection.update_one(
-                                {
-                                    "_id": ObjectId(user_id),
-                                    "doc_list._id": ObjectId(doc.id),
-                                },
-                                {"$set": {"doc_list.$.chunked": True}},
-                            )
-                            doc.chunked = True
-
+            # Simply return the documents as-is
+            # The background task will update chunked status when complete
+            # No need for additional queries here - trust the stored status
             return user_data.doc_list
         else:
             raise HTTPException(status_code=404, detail="User not found")
 
     except Exception as e:
+        logger.error(f"Error in get_all_docs: {e}")
         raise HTTPException(
             status_code=500, detail=f"Failed to get all uploaded documents: {e}"
         )
@@ -119,7 +99,7 @@ async def add_doc(
 
 @doc_router.get(
     "/{user_id}/{doc_id}",
-    description="Get full document details including doc_content",
+    description="Get full document details",
     response_model=Document,
     response_model_by_alias=False,
 )
@@ -193,65 +173,65 @@ async def delete_doc(
         )
 
 
-@doc_router.post(
-    "/parse", description="Parse document with Docling", response_model=ParsedDocument
-)
-async def parse_document(
-    parser_service: ParserDependency, file: UploadFile = File(...)
-):
-    """
-    Parse an uploaded PDF document using Docling.
+# @doc_router.post(
+#     "/parse", description="Parse document with Docling", response_model=ParsedDocument
+# )
+# async def parse_document(
+#     parser_service: ParserDependency, file: UploadFile = File(...)
+# ):
+#     """
+#     Parse an uploaded PDF document using Docling.
 
-    Args:
-        parser_service: The parser service dependency
-        file: The uploaded PDF file
+#     Args:
+#         parser_service: The parser service dependency
+#         file: The uploaded PDF file
 
-    Returns:
-        ParsedDocument: The parsed document with metadata and content
-    """
-    # Validate file type
-    if not file.filename or not file.filename.endswith(".pdf"):
-        raise HTTPException(status_code=400, detail="Only PDF files are supported")
+#     Returns:
+#         ParsedDocument: The parsed document with metadata and content
+#     """
+#     # Validate file type
+#     if not file.filename or not file.filename.endswith(".pdf"):
+#         raise HTTPException(status_code=400, detail="Only PDF files are supported")
 
-    temp_file_path = None
-    try:
-        # Create a temporary file to store the uploaded PDF
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
-            # Read the uploaded file content
-            content = await file.read()
+#     temp_file_path = None
+#     try:
+#         # Create a temporary file to store the uploaded PDF
+#         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
+#             # Read the uploaded file content
+#             content = await file.read()
 
-            # Write to temporary file
-            temp_file.write(content)
-            temp_file_path = temp_file.name
+#             # Write to temporary file
+#             temp_file.write(content)
+#             temp_file_path = temp_file.name
 
-        # Parse the document using the file path
-        parsed_document = await parser_service.parse_document(temp_file_path)
+#         # Parse the document using the file path
+#         parsed_document = await parser_service.parse_document_langchain(temp_file_path)
 
-        return parsed_document
+#         return parsed_document
 
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Failed to parse document: {str(e)}"
-        )
-    finally:
-        # Clean up the temporary file
-        if temp_file_path and os.path.exists(temp_file_path):
-            try:
-                os.unlink(temp_file_path)
-            except Exception as e:
-                # Log but don't fail if cleanup fails
-                print(f"Warning: Failed to delete temporary file {temp_file_path}: {e}")
+#     except HTTPException:
+#         raise
+#     except Exception as e:
+#         raise HTTPException(
+#             status_code=500, detail=f"Failed to parse document: {str(e)}"
+#         )
+#     finally:
+#         # Clean up the temporary file
+#         if temp_file_path and os.path.exists(temp_file_path):
+#             try:
+#                 os.unlink(temp_file_path)
+#             except Exception as e:
+#                 # Log but don't fail if cleanup fails
+#                 print(f"Warning: Failed to delete temporary file {temp_file_path}: {e}")
 
 
 async def process_document_chunking(
     user_id: str,
     doc_id: ObjectId,
-    s3_path: str,
     temp_file_path: str,
-    mongo_client,
-    parser_service,
+    mongo_client: MongoDependency,
+    parser_service: ParserDependency,
+    milvus_client: MilvusDependency,
 ):
     """
     Background task to parse document and update MongoDB with chunk data.
@@ -260,24 +240,27 @@ async def process_document_chunking(
         logger.info(f"Starting background chunking for document {doc_id}")
 
         # Parse the document
-        parsed_doc = await parser_service.parse_document(temp_file_path)
+        parsed_docs = await parser_service.parse_document_langchain(temp_file_path)
 
         # Update the document in MongoDB with parsed data
         await mongo_client.collection.update_one(
             {"_id": ObjectId(user_id), "doc_list._id": doc_id},
-            {
-                "$set": {
-                    "doc_list.$.chunked": True,
-                    "doc_list.$.chunk_data": (
-                        parsed_doc.model_dump() if parsed_doc else None
-                    ),
-                }
-            },
+            {"$set": {"doc_list.$.chunked": True}},
         )
 
         logger.info(
             f"Successfully completed chunking for document {doc_id}. "
-            f"Sections: {len(parsed_doc.doc_content.sections) if parsed_doc and parsed_doc.doc_content else 0}"
+            f"Sections: {len(parsed_docs) if parsed_docs else 0}"
+        )
+
+        logger.info(f"Start to indexing for document {doc_id}")
+        indexed_docs = await milvus_client.index_document(chunks=parsed_docs)
+        await mongo_client.collection.update_one(
+            {"_id": ObjectId(user_id), "doc_list._id": doc_id},
+            {"$set": {"doc_list.$.indexed": True}},
+        )
+        logger.info(
+            f"Successfully completed indexing for document {doc_id} with {len(indexed_docs['embedding'])}"
         )
 
     except Exception as e:
@@ -313,6 +296,7 @@ async def upload_and_parse_document(
     mongo_client: MongoDependency,
     aws_client: AWSDependency,
     parser_service: ParserDependency,
+    milvus_client: MilvusDependency,
     file: UploadFile = File(...),
 ) -> Dict[str, Any]:
     """
@@ -365,7 +349,6 @@ async def upload_and_parse_document(
             "uploaded_date": int(datetime.now().timestamp()),
             "indexed": False,
             "chunked": False,  # Will be set to True when chunk_data is added by background task
-            "chunk_data": None,
         }
 
         # Save to MongoDB
@@ -385,10 +368,10 @@ async def upload_and_parse_document(
             process_document_chunking,
             user_id,
             doc_id,
-            s3_key,
             temp_file_path,
             mongo_client,
             parser_service,
+            milvus_client,
         )
 
         # Convert ObjectId to string for response

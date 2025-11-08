@@ -1,6 +1,7 @@
 from src.config import Settings
 from .mongo_client import MongoDBClient
 from .aws_client import AWSClient
+from .milvus_client import MilvusVectorStoreClient
 
 import logging
 
@@ -12,9 +13,11 @@ logger = logging.getLogger(__name__)
 
 
 def make_database_client(settings: Settings):
-    settings = settings if settings else Settings()
     return MongoDBClient(settings)
 
+
 def make_aws_client(settings: Settings):
-    settings = settings if settings else Settings()
     return AWSClient(settings)
+
+def make_milvus_client(settings: Settings):
+    return MilvusVectorStoreClient(settings)

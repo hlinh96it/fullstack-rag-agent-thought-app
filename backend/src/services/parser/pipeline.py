@@ -3,7 +3,7 @@ from typing import Dict, Any, Optional
 from pydantic import AnyUrl
 from docling.datamodel.pipeline_options import (
     PdfPipelineOptions,
-    PictureDescriptionApiOptions,
+    smolvlm_picture_description,
 )
 from docling.chunking import HybridChunker  # type: ignore
 
@@ -26,26 +26,14 @@ from src.config import Settings
 
 def get_pdf_pipeline_options(settings: Settings) -> PdfPipelineOptions:
     parser_settings = settings.parser
-
-    # Note: Disabling picture descriptions due to a known issue with OpenAI API response parsing
-    # The API returns a tuple (text, token_count) but docling expects just a string
-    # This causes: ValidationError: Input should be a valid string [type=string_type, input_value=(..., 548), input_type=tuple]
-
-    # Uncomment and fix the response parsing if picture descriptions are needed:
-    # model_url = "https://api.openai.com/v1/chat/completions"
-    # picture_description_api_options = PictureDescriptionApiOptions(
-    #     url=AnyUrl(model_url),
-    #     prompt=parser_settings.picture_prompt,
-    #     params={"model": settings.openai.model_name},
-    #     headers={"Authorization": f"Bearer {settings.openai.openai_api_key}"},
-    #     timeout=settings.openai.timeout,
-    # )
+    picture_description_api = smolvlm_picture_description
+    picture_description_api.prompt = parser_settings.picture_prompt
 
     return PdfPipelineOptions(
         images_scale=parser_settings.image_scale,
         generate_picture_images=True,
-        do_picture_description=False,  # Disabled due to API response parsing issue
-        # picture_description_options=picture_description_api_options,
+        do_picture_description=True,  # Disabled due to API response parsing issue
+        picture_description_options=picture_description_api,
         do_table_structure=parser_settings.do_table_structure,
         do_ocr=parser_settings.do_orc,
         enable_remote_services=False,  # Disabled since we're not using remote API for picture descriptions

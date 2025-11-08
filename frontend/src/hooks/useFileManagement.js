@@ -16,7 +16,7 @@ export const useFileManagement = (userId) => {
 	const [uploadProgress, setUploadProgress] = useState({
 		current: 0,
 		total: 0,
-		stage: null, // 's3', 'mongodb', 'chunking', 'complete'
+		stage: null, // 's3', 'mongodb', 'chunking', 'indexing', 'complete'
 		percentage: 0,
 		fileName: null,
 	});
@@ -30,7 +30,7 @@ export const useFileManagement = (userId) => {
 
 	// Fetch uploaded files (with option for silent refresh)
 	const fetchUploadedFiles = useCallback(
-		async (silent = false) => {
+		async (silent = false, updateProgress = false) => {
 			if (!silent) setLoading(true);
 			try {
 				const response = await docApi.getAllDocs(userId);
@@ -44,18 +44,82 @@ export const useFileManagement = (userId) => {
 				}
 
 				// Check if any files are still processing
-				// Backend now checks MongoDB for chunk_data and updates status
-				const hasProcessing = sortedFiles.some(
-					(file) =>
-						file.chunked === "processing" || file.chunked === false
+				// Backend returns chunked as boolean: true (done) or false (processing)
+				// Backend returns indexed as boolean: true (done) or false (processing)
+				const chunkingFiles = sortedFiles.filter(
+					(file) => file.chunked === false
+				);
+				const indexingFiles = sortedFiles.filter(
+					(file) => file.chunked === true && file.indexed === false
 				);
 
-				return hasProcessing;
+				const hasChunking = chunkingFiles.length > 0;
+				const hasIndexing = indexingFiles.length > 0;
+
+				if (silent && (hasChunking || hasIndexing)) {
+					console.log(
+						`[Fetch] Processing status - Chunking: ${chunkingFiles.length}, Indexing: ${indexingFiles.length}`,
+						{
+							chunking: chunkingFiles.map((f) => ({
+								title: f.title,
+								chunked: f.chunked,
+							})),
+							indexing: indexingFiles.map((f) => ({
+								title: f.title,
+								indexed: f.indexed,
+							})),
+						}
+					);
+				}
+
+				// Update progress bar based on backend status
+				if (updateProgress) {
+					if (hasChunking) {
+						setUploadProgress((prev) => ({
+							...prev,
+							stage: "chunking",
+							percentage: 40,
+						}));
+					} else if (hasIndexing) {
+						setUploadProgress((prev) => ({
+							...prev,
+							stage: "indexing",
+							percentage: 70,
+						}));
+					} else if (
+						!hasChunking &&
+						!hasIndexing &&
+						sortedFiles.length > 0
+					) {
+						// All files are processed
+						setUploadProgress((prev) => ({
+							...prev,
+							stage: "complete",
+							percentage: 100,
+						}));
+					}
+				}
+
+				return hasChunking || hasIndexing;
 			} catch (error) {
 				console.error("Error fetching files:", error);
-				if (!silent && error.response?.status !== 500) {
+
+				// Handle timeout errors specifically
+				if (error.message?.includes("timeout")) {
+					if (!silent) {
+						toast.error(
+							"Request timed out. Please check your connection or try again."
+						);
+					}
+					// Stop polling on timeout to avoid repeated failures
+					if (pollingIntervalRef.current) {
+						clearInterval(pollingIntervalRef.current);
+						pollingIntervalRef.current = null;
+					}
+				} else if (!silent && error.status !== 500) {
 					toast.error("Failed to fetch uploaded files");
 				}
+
 				return false;
 			} finally {
 				if (!silent) setLoading(false);
@@ -69,16 +133,71 @@ export const useFileManagement = (userId) => {
 		// Clear any existing polling interval
 		if (pollingIntervalRef.current) {
 			clearInterval(pollingIntervalRef.current);
+			pollingIntervalRef.current = null;
 		}
+
+		console.log("[Polling] Starting to monitor processing status...");
+
+		let consecutiveErrors = 0;
+		const maxErrors = 3;
 
 		// Poll every 3 seconds
 		pollingIntervalRef.current = setInterval(async () => {
-			const hasProcessing = await fetchUploadedFiles(true); // Silent refresh
+			try {
+				const hasProcessing = await fetchUploadedFiles(true, true); // Silent refresh with progress update
+				consecutiveErrors = 0; // Reset error counter on success
 
-			// Stop polling if no files are processing
-			if (!hasProcessing && pollingIntervalRef.current) {
-				clearInterval(pollingIntervalRef.current);
-				pollingIntervalRef.current = null;
+				// Stop polling if no files are processing
+				if (!hasProcessing) {
+					console.log(
+						"[Polling] All files processed. Stopping polling."
+					);
+					if (pollingIntervalRef.current) {
+						clearInterval(pollingIntervalRef.current);
+						pollingIntervalRef.current = null;
+					}
+					toast.success("All files processed successfully!");
+
+					// Set final complete stage
+					setUploadProgress((prev) => ({
+						...prev,
+						stage: "complete",
+						percentage: 100,
+					}));
+
+					// Reset progress bar after showing complete
+					setTimeout(() => {
+						setUploadProgress({
+							current: 0,
+							total: 0,
+							stage: null,
+							percentage: 0,
+							fileName: null,
+						});
+					}, 3000);
+				} else {
+					console.log("[Polling] Still processing files...");
+				}
+			} catch (error) {
+				consecutiveErrors++;
+				console.warn(
+					`[Polling] Error (${consecutiveErrors}/${maxErrors}):`,
+					error
+				);
+
+				// Stop polling after max consecutive errors
+				if (consecutiveErrors >= maxErrors) {
+					console.log(
+						"[Polling] Max errors reached. Stopping polling."
+					);
+					if (pollingIntervalRef.current) {
+						clearInterval(pollingIntervalRef.current);
+						pollingIntervalRef.current = null;
+					}
+					toast.warning(
+						"Stopped checking file status due to connection issues. Please refresh to check status."
+					);
+				}
 			}
 		}, 3000);
 	}, [fetchUploadedFiles]);
@@ -140,7 +259,7 @@ export const useFileManagement = (userId) => {
 							current: fileIndex,
 							total: totalFiles,
 							stage: "mongodb",
-							percentage: 30,
+							percentage: 20,
 							fileName: file.name,
 						});
 
@@ -163,13 +282,14 @@ export const useFileManagement = (userId) => {
 				}
 			}
 
-			// Stage 3: Start chunking phase
+			// After S3/MongoDB upload is complete
 			if (successCount > 0) {
+				// Set chunking stage
 				setUploadProgress({
 					current: successCount,
 					total: totalFiles,
 					stage: "chunking",
-					percentage: 50,
+					percentage: 40,
 					fileName: `${successCount} file${
 						successCount > 1 ? "s" : ""
 					}`,
@@ -177,71 +297,17 @@ export const useFileManagement = (userId) => {
 
 				setFiles([]);
 
-				// Refresh the file list to show uploaded documents
-				await fetchUploadedFiles(true); // Silent refresh
+				// Immediately fetch and display the uploaded files
+				// This will show them with chunked=false and indexed=false (processing state)
+				await fetchUploadedFiles(true); // Silent refresh to show files immediately
 
-				// Start polling to track chunking progress
+				// Start polling to update file status indicators AND progress bar in the background
+				// Files will show spinners/processing indicators based on chunked/indexed status
 				startPolling();
 
-				// Poll for chunking completion
-				const checkChunking = setInterval(async () => {
-					const response = await docApi.getAllDocs(userId);
-					const filesArray = Object.values(response);
-
-					// Check if all uploaded files are chunked
-					const allChunked = uploadedDocIds.every((docId) => {
-						const doc = filesArray.find((f) => f._id === docId);
-						return doc && doc.chunked === true;
-					});
-
-					if (allChunked) {
-						clearInterval(checkChunking);
-
-						// Stage 4: Complete
-						setUploadProgress({
-							current: successCount,
-							total: totalFiles,
-							stage: "complete",
-							percentage: 100,
-							fileName: null,
-						});
-
-						toast.success(
-							`Successfully processed ${successCount} file(s)!`
-						);
-
-						// Final refresh to update UI
-						await fetchUploadedFiles();
-
-						// Reset progress after showing complete state
-						setTimeout(() => {
-							setUploadProgress({
-								current: 0,
-								total: 0,
-								stage: null,
-								percentage: 0,
-								fileName: null,
-							});
-						}, 2000);
-					}
-				}, 2000);
-
-				// Timeout after 5 minutes
-				setTimeout(() => {
-					clearInterval(checkChunking);
-					if (uploadProgress.stage === "chunking") {
-						toast.warning(
-							"Chunking is taking longer than expected. Files will continue processing in the background."
-						);
-						setUploadProgress({
-							current: 0,
-							total: 0,
-							stage: null,
-							percentage: 0,
-							fileName: null,
-						});
-					}
-				}, 5 * 60 * 1000);
+				toast.success(
+					`${successCount} file(s) uploaded! Chunking and indexing in background...`
+				);
 			}
 
 			if (failCount > 0) {
@@ -253,7 +319,7 @@ export const useFileManagement = (userId) => {
 		} finally {
 			setUploading(false);
 		}
-	}, [files, userId, fetchUploadedFiles, startPolling, uploadProgress.stage]);
+	}, [files, userId, fetchUploadedFiles, startPolling]);
 
 	// Download handler
 	const handleDownload = useCallback(async (s3_path, fileName) => {

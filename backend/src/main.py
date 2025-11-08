@@ -6,8 +6,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.config import Settings
 from src.services.chat.factory import make_chat_client
-from src.services.database.factory import make_database_client, make_aws_client
+from src.services.database.factory import make_database_client, make_aws_client, make_milvus_client
 from src.services.parser.factory import make_parser_service
+from src.services.embedding.factory import make_jina_embedding_client
 
 from src.router.user import user_router
 from src.router.chat import chat_router
@@ -33,6 +34,7 @@ async def lifespan(app: FastAPI):
     app.state.mongo_client = make_database_client(settings)
     app.state.chat_client = make_chat_client(settings, client_type="openai")
     app.state.aws_client = make_aws_client(settings)
+    app.state.milvus_client = make_milvus_client(settings)
     app.state.parser_client = make_parser_service(settings)
 
     yield
