@@ -20,7 +20,7 @@ import {
   ScrollArea,
   ScrollBar,
 } from '@repo/shadcn-ui/components/ui/scroll-area';
-import { cn } from '@repo/shadcn-ui/lib/utils';
+import { cn } from '@/lib/utils';
 
 export const Suggestions = ({
   className,

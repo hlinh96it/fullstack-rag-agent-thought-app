@@ -19,7 +19,7 @@ import {
   AvatarFallback,
   AvatarImage,
 } from '@repo/shadcn-ui/components/ui/avatar';
-import { cn } from '@repo/shadcn-ui/lib/utils';
+import { cn } from '@/lib/utils';
 
 export const Message = ({
   className,

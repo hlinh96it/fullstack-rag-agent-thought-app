@@ -15,6 +15,12 @@ class Message(BaseModel):
     role: str = Field(..., description="Role of message including user or AIMessage")
     content: str = Field(default="", description="Content of the message")
     created_at: Optional[int] = None
+    processing_steps: Optional[List[dict]] = Field(
+        default=None, description="Processing steps for agent responses"
+    )
+    retrieved_documents: Optional[List[dict]] = Field(
+        default=None, description="Retrieved documents for RAG responses"
+    )
 
 
 class Chat(BaseModel):

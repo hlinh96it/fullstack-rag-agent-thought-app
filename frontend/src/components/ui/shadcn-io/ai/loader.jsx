@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { cn } from '@repo/shadcn-ui/lib/utils';
+import { cn } from '@/lib/utils';
 
 const LoaderIcon = ({
   size = 16

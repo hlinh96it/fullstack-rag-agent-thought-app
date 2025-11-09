@@ -1,4 +1,5 @@
 from typing import Optional, Any, List
+from uuid import uuid4
 
 from langchain_docling.loader import DoclingLoader
 from langchain_core.documents import Document
@@ -31,14 +32,15 @@ class ParserService:
         self.converter = DocumentConverter(
             allowed_formats=[InputFormat.PDF],
             format_options={
-                InputFormat.PDF: PdfFormatOption(pipeline_options=self.pipeline_options)
+                InputFormat.PDF: PdfFormatOption(
+                    pipeline_options=self.pipeline_options)
             },
         )
 
         self.max_pages = self.settings.max_pages
         self.max_file_size_bytes = self.settings.max_file_size_mb * 1024 * 1024
-        
-        logger.info(f'👌 Docling Parser Service initialized')
+
+        logger.info(f"👌 Docling Parser Service initialized")
 
     async def parse_document_docling(self, file_path: str) -> ParsedDocument:
         """Parse document by using docling only
@@ -48,9 +50,7 @@ class ParserService:
         """
         try:
             result = self.converter.convert(
-                source=str(file_path),
-                max_num_pages=self.max_pages,
-                max_file_size=self.max_file_size_bytes,
+                source=str(file_path), max_num_pages=self.max_pages, max_file_size=self.max_file_size_bytes,
             ).document
 
             sections = []
@@ -69,7 +69,8 @@ class ParserService:
                                 content=current_section["content"].strip(),
                             )
                         )
-                    current_section = {"title": element.text.strip(), "content": ""}
+                    current_section = {
+                        "title": element.text.strip(), "content": ""}
 
                 # add content to current section
                 else:
@@ -103,16 +104,20 @@ class ParserService:
             # Note: Page and size limit checks are now handled in _validate_pdf method
 
             if "not valid" in error_msg:
-                logger.error("PDF appears to be corrupted or not a valid PDF file")
+                logger.error(
+                    "PDF appears to be corrupted or not a valid PDF file")
                 raise PDFParsingException(
                     f"PDF appears to be corrupted or invalid: {file_path}"
                 )
             elif "timeout" in error_msg:
-                logger.error("PDF processing timed out - file may be too complex")
-                raise PDFParsingException(f"PDF processing timed out: {file_path}")
+                logger.error(
+                    "PDF processing timed out - file may be too complex")
+                raise PDFParsingException(
+                    f"PDF processing timed out: {file_path}")
             elif "memory" in error_msg or "ram" in error_msg:
                 logger.error("Out of memory - PDF may be too large or complex")
-                raise PDFParsingException(f"Out of memory processing PDF: {file_path}")
+                raise PDFParsingException(
+                    f"Out of memory processing PDF: {file_path}")
             elif "max_num_pages" in error_msg or "page" in error_msg:
                 logger.error(
                     f"PDF processing issue likely related to page limits (current limit: {self.max_pages} pages)"
@@ -121,15 +126,14 @@ class ParserService:
                     f"PDF processing failed, possibly due to page limit ({self.max_pages} pages). Error: {e}"
                 )
             else:
-                raise PDFParsingException(f"Failed to parse PDF with Docling: {e}")
+                raise PDFParsingException(
+                    f"Failed to parse PDF with Docling: {e}")
 
     async def parse_document_langchain(self, file_path: str) -> List[Document]:
         """Parse document using Langchain-Docling while returning Langchain-Document"""
         try:
             docs = DoclingLoader(
-                file_path=file_path,
-                converter=self.converter,
-                chunker=self.chunker,
+                file_path=file_path, converter=self.converter, chunker=self.chunker,
                 export_type=self.settings.export_type,
             ).load()
 
@@ -138,9 +142,7 @@ class ParserService:
                 metadata = doc.metadata
                 _metadata = {
                     "source": str(metadata["source"]),
-                    "page_no": metadata["dl_meta"]["doc_items"][0]["prov"][0][
-                        "page_no"
-                    ],
+                    "page_no": metadata["dl_meta"]["doc_items"][0]["prov"][0]["page_no"],
                     "namespace": self.milvus_namespace,
                 }
                 processed_docs.append(
@@ -156,16 +158,20 @@ class ParserService:
             # Note: Page and size limit checks are now handled in _validate_pdf method
 
             if "not valid" in error_msg:
-                logger.error("PDF appears to be corrupted or not a valid PDF file")
+                logger.error(
+                    "PDF appears to be corrupted or not a valid PDF file")
                 raise PDFParsingException(
                     f"PDF appears to be corrupted or invalid: {file_path}"
                 )
             elif "timeout" in error_msg:
-                logger.error("PDF processing timed out - file may be too complex")
-                raise PDFParsingException(f"PDF processing timed out: {file_path}")
+                logger.error(
+                    "PDF processing timed out - file may be too complex")
+                raise PDFParsingException(
+                    f"PDF processing timed out: {file_path}")
             elif "memory" in error_msg or "ram" in error_msg:
                 logger.error("Out of memory - PDF may be too large or complex")
-                raise PDFParsingException(f"Out of memory processing PDF: {file_path}")
+                raise PDFParsingException(
+                    f"Out of memory processing PDF: {file_path}")
             elif "max_num_pages" in error_msg or "page" in error_msg:
                 logger.error(
                     f"PDF processing issue likely related to page limits (current limit: {self.max_pages} pages)"
@@ -174,9 +180,5 @@ class ParserService:
                     f"PDF processing failed, possibly due to page limit ({self.max_pages} pages). Error: {e}"
                 )
             else:
-                raise PDFParsingException(f"Failed to parse PDF with Docling: {e}")
-
-
-if __name__ == "__main__":
-    settings = Settings()
-    parser = ParserService(settings)
+                raise PDFParsingException(
+                    f"Failed to parse PDF with Docling: {e}")

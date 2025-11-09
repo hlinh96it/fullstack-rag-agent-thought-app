@@ -1,14 +1,17 @@
 import os
 from contextlib import asynccontextmanager
 
+# Suppress gRPC fork warnings
+os.environ.setdefault('GRPC_ENABLE_FORK_SUPPORT', '0')
+os.environ.setdefault('GRPC_POLL_STRATEGY', 'poll')
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.config import Settings
-from src.services.chat.factory import make_chat_client
+from src.services.chat.factory import make_chat_client, make_agent_client
 from src.services.database.factory import make_database_client, make_aws_client, make_milvus_client
 from src.services.parser.factory import make_parser_service
-from src.services.embedding.factory import make_jina_embedding_client
 
 from src.router.user import user_router
 from src.router.chat import chat_router
@@ -32,10 +35,22 @@ async def lifespan(app: FastAPI):
 
     settings = Settings()
     app.state.mongo_client = make_database_client(settings)
-    app.state.chat_client = make_chat_client(settings, client_type="openai")
+    app.state.chat_client = make_chat_client(settings)
     app.state.aws_client = make_aws_client(settings)
     app.state.milvus_client = make_milvus_client(settings)
     app.state.parser_client = make_parser_service(settings)
+    
+    # Initialize agent with vector store configuration
+    vector_stores = [
+        {
+            'store': app.state.milvus_client.vector_store,
+            'name': 'paper_retriever',
+            'description': 'Search and retrieve relevant information from academic papers and research documents',
+            'k': 4,
+            'ranker_weights': [0.6, 0.4]
+        }
+    ]
+    app.state.agent_client = make_agent_client(settings, vector_stores)
 
     yield
 
@@ -56,3 +71,38 @@ app.include_router(chat_router, prefix="/chat")
 app.include_router(ask_router, prefix="/ask")
 app.include_router(s3_router, prefix="/s3")
 app.include_router(doc_router, prefix="/doc")
+
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint to verify all services are running."""
+    return {
+        "status": "healthy",
+        "services": {
+            "api": "running",
+            "agent": "initialized" if hasattr(app.state, 'agent_client') else "not initialized",
+            "mongodb": "connected" if hasattr(app.state, 'mongo_client') else "not connected",
+            "milvus": "connected" if hasattr(app.state, 'milvus_client') else "not connected",
+            "aws": "connected" if hasattr(app.state, 'aws_client') else "not connected",
+        }
+    }
+
+
+@app.get("/")
+async def root():
+    """Root endpoint with API information."""
+    return {
+        "name": "FullStack Advanced RAG App with Agentic Thought",
+        "version": "2.0.0",
+        "description": "An intelligent RAG system with agentic capabilities",
+        "endpoints": {
+            "health": "/health",
+            "docs": "/docs",
+            "agent_status": "/ask/status",
+            "users": "/user",
+            "chats": "/chat",
+            "ask": "/ask",
+            "documents": "/doc",
+            "s3": "/s3"
+        }
+    }

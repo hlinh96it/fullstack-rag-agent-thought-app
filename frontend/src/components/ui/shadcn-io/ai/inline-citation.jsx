@@ -22,7 +22,7 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from '@repo/shadcn-ui/components/ui/hover-card';
-import { cn } from '@repo/shadcn-ui/lib/utils';
+import { cn } from '@/lib/utils';
 import { ArrowLeftIcon, ArrowRightIcon } from 'lucide-react';
 import { useCallback, useEffect, useState, createContext, useContext } from 'react';
 

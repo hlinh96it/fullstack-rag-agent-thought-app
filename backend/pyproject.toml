@@ -11,6 +11,7 @@ dependencies = [
     "ipykernel>=7.1.0",
     "jupyterlab>=4.4.10",
     "langchain>=0.3.27",
+    "langchain-community>=0.3.31",
     "langchain-docling>=1.1.0",
     "langchain-milvus>=0.2.1",
     "langchain-openai>=0.3.35",

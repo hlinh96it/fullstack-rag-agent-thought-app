@@ -1,6 +1,8 @@
 import { useAppContext } from '@/context/AppContext'
 import React, { useEffect, useState, useRef } from 'react'
 import Message from './Message'
+import ProcessingStatus from './ProcessingStatus'
+import References from './References'
 import { Bot } from 'lucide-react'
 import { PromptInput, PromptInputSubmit, PromptInputTextarea, PromptInputToolbar }
     from './ui/shadcn-io/ai/prompt-input'
@@ -16,6 +18,7 @@ const ChatBox = () => {
     const [messages, setMessages] = useState([])
     const [prompt, setPrompt] = useState('')
     const [loading, setLoading] = useState(false)
+    const [processingData, setProcessingData] = useState(null) // Stores { steps, documents, isComplete }
 
 
     const handleSubmit = async () => {
@@ -55,12 +58,117 @@ const ChatBox = () => {
     }
 
     const handleResponse = async (prompt) => {
+        // Track when we started
+        const startTime = Date.now();
+        
         try {
-            const response = await askApi.askQuestion(prompt)
-            const assistantMessage = { 'role': 'assistant', 'content': response, 'created_at': Date.now() };
+            // Initialize processing data with estimated steps
+            // These will be replaced with real data when response comes back
+            const estimatedSteps = [
+                { step_name: 'analyze_question', status: 'in_progress', timestamp: startTime / 1000, details: 'Analyzing your question...' },
+            ];
+            
+            setProcessingData({
+                steps: estimatedSteps,
+                documents: [],
+                isComplete: false
+            });
+
+            // Simulate progress updates while waiting for response
+            const progressInterval = setInterval(() => {
+                setProcessingData(prev => {
+                    if (!prev || prev.isComplete) return prev;
+                    
+                    const elapsed = (Date.now() - startTime) / 1000;
+                    const newSteps = [...prev.steps];
+                    
+                    // Add steps based on elapsed time
+                    if (elapsed > 1 && newSteps.length === 1) {
+                        newSteps[0].status = 'completed';
+                        newSteps.push({
+                            step_name: 'search_documents',
+                            status: 'in_progress',
+                            timestamp: Date.now() / 1000,
+                            details: 'Searching through your documents...'
+                        });
+                    } else if (elapsed > 3 && newSteps.length === 2) {
+                        newSteps[1].status = 'completed';
+                        newSteps.push({
+                            step_name: 'grade_documents',
+                            status: 'in_progress',
+                            timestamp: Date.now() / 1000,
+                            details: 'Evaluating document relevance...'
+                        });
+                    } else if (elapsed > 4 && newSteps.length === 3) {
+                        newSteps[2].status = 'completed';
+                        newSteps.push({
+                            step_name: 'generate_answer',
+                            status: 'in_progress',
+                            timestamp: Date.now() / 1000,
+                            details: 'Generating your answer...'
+                        });
+                    }
+                    
+                    return { ...prev, steps: newSteps };
+                });
+            }, 500);
+
+            // Prepare chat history (last 5 messages for context, excluding system messages)
+            const recentMessages = messages
+                .slice(-10) // Get last 10 messages for context
+                .filter(msg => msg.role !== 'system')
+                .map(msg => ({
+                    role: msg.role,
+                    content: msg.content
+                }));
+
+            console.log('Calling askApi.askQuestion with:', { prompt, recentMessages });
+            const response = await askApi.askQuestion(prompt, recentMessages);
+            console.log('Received response from askApi:', response);
+            console.log('Response type:', typeof response);
+            console.log('Response keys:', Object.keys(response || {}));
+            
+            // Stop the progress simulation
+            clearInterval(progressInterval);
+            
+            // Extract answer and metadata
+            const answer = response?.answer || response;
+            const processingSteps = response?.processing_steps || [];
+            const retrievedDocuments = response?.retrieved_documents || [];
+            
+            console.log('Processing steps:', processingSteps);
+            console.log('Retrieved documents:', retrievedDocuments);
+            
+            // Update processing data with REAL information from backend
+            // If backend didn't return steps, use our estimated ones
+            const finalSteps = processingSteps.length > 0 ? processingSteps : [
+                { step_name: 'analyze_question', status: 'completed', timestamp: startTime / 1000, details: 'Question analyzed' },
+                { step_name: 'search_documents', status: 'completed', timestamp: (startTime + 1500) / 1000, details: 'Documents searched' },
+                { step_name: 'grade_documents', status: 'completed', timestamp: (startTime + 3000) / 1000, details: 'Documents evaluated' },
+                { step_name: 'generate_answer', status: 'completed', timestamp: Date.now() / 1000, details: 'Answer generated' }
+            ];
+            
+            setProcessingData({
+                steps: finalSteps,
+                documents: retrievedDocuments,
+                isComplete: true
+            });
+            
+            const assistantMessage = { 
+                'role': 'assistant', 
+                'content': answer, 
+                'created_at': Date.now(),
+                'processing_steps': finalSteps,
+                'retrieved_documents': retrievedDocuments
+            };
 
             setMessages(prevMessages => [...prevMessages, assistantMessage])
             setLoading(false)
+            
+            // Clear processing data after a delay to allow animation
+            // setTimeout(() => {
+            //     setProcessingData(null)
+            // }, 3000)
 
             // Update the selectedChat context with new message
             setSelectedChat(prev => ({
@@ -82,14 +190,25 @@ const ChatBox = () => {
         } catch (error) {
             console.error(`Failed to generate answer: ${error}`)
             setLoading(false)
-            toast.error(`Failed to generate answer: ${error.message || error}`)
+            setProcessingData(null)
+            
+            // Extract detailed error message
+            let errorMessage = 'Sorry, I encountered an error. Please try again.';
+            if (error?.message) {
+                errorMessage = error.message;
+            } else if (typeof error === 'string') {
+                errorMessage = error;
+            }
+            
+            // Show error toast with specific message
+            toast.error(errorMessage)
 
-            const errorMessage = {
+            const errorMessageObj = {
                 role: 'assistant',
-                content: 'Sorry, I encountered an error. Please try again.',
+                content: errorMessage,
                 created_at: Date.now()
             };
-            setMessages(prevMessages => [...prevMessages, errorMessage]);
+            setMessages(prevMessages => [...prevMessages, errorMessageObj]);
         }
     }
 
@@ -99,6 +218,8 @@ const ChatBox = () => {
         } else {
             setMessages([])
         }
+        // Clear processing data when changing chats
+        setProcessingData(null)
     }, [selectedChat])
 
     // scroll down to the latest message
@@ -127,16 +248,35 @@ const ChatBox = () => {
                         </p>
                     </div>
                 )}
-                {messages.map((message, index) => (
-                    <Message key={`${message.created_at}-${index}`} message={message} />
-                ))}
-                {loading && (
-                    <div className='flex items-start gap-2 my-4'>
-                        <Bot className='h-6 w-6 mt-1 shrink-0' />
-                        <div className='flex flex-col gap-2 p-2 px-4 max-w-2xl bg-primary/5 border border-[#80609F]/30 rounded-md'>
-                            <div className='text-sm text-gray-500'>Thinking...</div>
-                        </div>
-                    </div>
+                {messages.map((message, index) => {
+                    return (
+                        <React.Fragment key={`${message.created_at}-${index}`}>
+                            {message.role === 'assistant' && (
+                                <>
+                                    {/* Show processing status if this is the last assistant message and we have processing data */}
+                                    {index === messages.length - 1 && processingData && (
+                                        <ProcessingStatus
+                                            processingSteps={processingData.steps}
+                                            retrievedDocuments={processingData.documents}
+                                            isComplete={processingData.isComplete}
+                                        />
+                                    )}
+
+                                </>
+                            )}
+                            <Message message={message} messages={messages} index={index} processingData={processingData}/>
+
+                        </React.Fragment>
+                    )
+                })}
+                
+                {/* Show processing status while loading (before message is added) */}
+                {loading && processingData && messages[messages.length - 1]?.role !== 'assistant' && (
+                    <ProcessingStatus
+                        processingSteps={processingData.steps}
+                        retrievedDocuments={processingData.documents}
+                        isComplete={processingData.isComplete}
+                    />
                 )}
             </div>
 

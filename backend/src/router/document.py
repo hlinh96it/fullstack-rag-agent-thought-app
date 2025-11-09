@@ -5,17 +5,14 @@ import tempfile
 import os
 from pathlib import Path
 from datetime import datetime
-import logging
+
+from langchain_core.documents import Document as LCDocument
 
 from src.schema.document.models import Document, ParsedDocument
 from src.schema.user.models import User
-from src.dependencies import (
-    MongoDependency,
-    ParserDependency,
-    AWSDependency,
-    MilvusDependency,
-)
+from src.dependencies import MongoDependency, ParserDependency, AWSDependency, MilvusDependency
 
+import logging
 logger = logging.getLogger(__name__)
 
 
@@ -173,65 +170,9 @@ async def delete_doc(
         )
 
 
-# @doc_router.post(
-#     "/parse", description="Parse document with Docling", response_model=ParsedDocument
-# )
-# async def parse_document(
-#     parser_service: ParserDependency, file: UploadFile = File(...)
-# ):
-#     """
-#     Parse an uploaded PDF document using Docling.
-
-#     Args:
-#         parser_service: The parser service dependency
-#         file: The uploaded PDF file
-
-#     Returns:
-#         ParsedDocument: The parsed document with metadata and content
-#     """
-#     # Validate file type
-#     if not file.filename or not file.filename.endswith(".pdf"):
-#         raise HTTPException(status_code=400, detail="Only PDF files are supported")
-
-#     temp_file_path = None
-#     try:
-#         # Create a temporary file to store the uploaded PDF
-#         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
-#             # Read the uploaded file content
-#             content = await file.read()
-
-#             # Write to temporary file
-#             temp_file.write(content)
-#             temp_file_path = temp_file.name
-
-#         # Parse the document using the file path
-#         parsed_document = await parser_service.parse_document_langchain(temp_file_path)
-
-#         return parsed_document
-
-#     except HTTPException:
-#         raise
-#     except Exception as e:
-#         raise HTTPException(
-#             status_code=500, detail=f"Failed to parse document: {str(e)}"
-#         )
-#     finally:
-#         # Clean up the temporary file
-#         if temp_file_path and os.path.exists(temp_file_path):
-#             try:
-#                 os.unlink(temp_file_path)
-#             except Exception as e:
-#                 # Log but don't fail if cleanup fails
-#                 print(f"Warning: Failed to delete temporary file {temp_file_path}: {e}")
-
-
-async def process_document_chunking(
-    user_id: str,
-    doc_id: ObjectId,
-    temp_file_path: str,
-    mongo_client: MongoDependency,
-    parser_service: ParserDependency,
-    milvus_client: MilvusDependency,
+async def chunk_index_documents(
+    user_id: str, doc_id: ObjectId, temp_file_path: str,
+    mongo_client: MongoDependency, parser_service: ParserDependency, milvus_client: MilvusDependency
 ):
     """
     Background task to parse document and update MongoDB with chunk data.
@@ -254,13 +195,13 @@ async def process_document_chunking(
         )
 
         logger.info(f"Start to indexing for document {doc_id}")
-        indexed_docs = await milvus_client.index_document(chunks=parsed_docs)
+        indexed_docs = await milvus_client.index_document(parsed_docs)
         await mongo_client.collection.update_one(
             {"_id": ObjectId(user_id), "doc_list._id": doc_id},
             {"$set": {"doc_list.$.indexed": True}},
         )
         logger.info(
-            f"Successfully completed indexing for document {doc_id} with {len(indexed_docs['embedding'])}"
+            f"Successfully completed indexing for document {doc_id} with {len(indexed_docs)}"
         )
 
     except Exception as e:
@@ -270,8 +211,8 @@ async def process_document_chunking(
             {"_id": ObjectId(user_id), "doc_list._id": doc_id},
             {
                 "$set": {
-                    "doc_list.$.chunked": False,
-                    "doc_list.$.chunk_error": str(e),
+                    "doc_list.$.chunked": False, "doc_list.$.chunk_error": str(e),
+                    "doc_list.$.indexed": False, "doc_list.$.indexed_error": str(e),
                 }
             },
         )
@@ -282,7 +223,8 @@ async def process_document_chunking(
                 os.unlink(temp_file_path)
                 logger.info(f"Cleaned up temporary file: {temp_file_path}")
             except Exception as e:
-                logger.warning(f"Failed to delete temporary file {temp_file_path}: {e}")
+                logger.warning(
+                    f"Failed to delete temporary file {temp_file_path}: {e}")
 
 
 @doc_router.post(
@@ -291,13 +233,9 @@ async def process_document_chunking(
     response_model=Dict[str, Any],
 )
 async def upload_and_parse_document(
-    user_id: str,
-    background_tasks: BackgroundTasks,
-    mongo_client: MongoDependency,
-    aws_client: AWSDependency,
-    parser_service: ParserDependency,
-    milvus_client: MilvusDependency,
-    file: UploadFile = File(...),
+    user_id: str, background_tasks: BackgroundTasks,
+    mongo_client: MongoDependency, aws_client: AWSDependency, parser_service: ParserDependency,
+    milvus_client: MilvusDependency, file: UploadFile = File(...),
 ) -> Dict[str, Any]:
     """
     Upload a PDF file and return immediately:
@@ -309,7 +247,8 @@ async def upload_and_parse_document(
     """
     # Validate file type
     if not file.filename or not file.filename.endswith(".pdf"):
-        raise HTTPException(status_code=400, detail="Only PDF files are supported")
+        raise HTTPException(
+            status_code=400, detail="Only PDF files are supported")
 
     # Read file content once
     content = await file.read()
@@ -319,7 +258,8 @@ async def upload_and_parse_document(
     if file_size > 10 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="File size exceeds 10MB")
     elif file_size < 1024:
-        raise HTTPException(status_code=400, detail="File size must be at least 1KB")
+        raise HTTPException(
+            status_code=400, detail="File size must be at least 1KB")
 
     try:
         # Generate unique identifiers
@@ -365,19 +305,15 @@ async def upload_and_parse_document(
 
         # Start chunking in background
         background_tasks.add_task(
-            process_document_chunking,
-            user_id,
-            doc_id,
-            temp_file_path,
-            mongo_client,
-            parser_service,
-            milvus_client,
+            chunk_index_documents, user_id, doc_id, temp_file_path, mongo_client, parser_service,
+            milvus_client
         )
 
         # Convert ObjectId to string for response
         new_doc["_id"] = str(new_doc["_id"])
 
-        logger.info(f"Document {doc_id} uploaded. Chunking started in background.")
+        logger.info(
+            f"Document {doc_id} uploaded. Chunking started in background.")
 
         return {
             "status": "success",

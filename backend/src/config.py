@@ -34,7 +34,7 @@ class OpenAISettings(BaseConfigSettings):
     openai_api_key: str = ""
     model_name: str = ""
     temperature: float = 0.7
-    timeout: int = 3000
+    timeout: int = 60
 
 
 class MongoDBSettings(BaseConfigSettings):
@@ -97,8 +97,8 @@ class ParserSettings(BaseConfigSettings):
     picture_prompt: str = "Describe this image in sentences in a single paragraph."
     image_scale: int = 2
 
-    tokenizer_model_id: str = "sentence-transformers/all-MiniLM-L6-v2"
-    max_tokens: int = 512
+    tokenizer_model_id: str = "jinaai/jina-embeddings-v3"
+    max_tokens: int = 1000
     image_mode: ImageRefMode = ImageRefMode.PLACEHOLDER
     image_placeholder: str = ""
     mark_annotation: bool = True

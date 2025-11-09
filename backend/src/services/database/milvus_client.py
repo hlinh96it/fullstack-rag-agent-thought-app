@@ -1,87 +1,77 @@
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
+from httpx import HTTPError
 
-from pymilvus import MilvusClient, DataType, Function, FunctionType
-from pymilvus.model.dense import JinaEmbeddingFunction
+from pydantic import SecretStr
 from langchain_core.documents import Document
+from langchain_core.retrievers import BaseRetriever
+from langchain_milvus import Milvus, BM25BuiltInFunction
+from langchain_community.embeddings import JinaEmbeddings
 
 from src.config import Settings
-from src.schema.embeddings.jina import JinaEmbeddingRequest
 
 import logging
 
 logger = logging.getLogger(__name__)
 
 
-class MilvusVectorStoreClient:
+class MilvusClient:
     def __init__(self, settings: Settings):
         self.settings = settings
-        self.client = MilvusClient(
-            uri=self.settings.milvus.uri, token=self.settings.milvus.api_key
-        )
-        self.collection_name = self.settings.milvus.collection_name
+        self.vector_store = self._init_vector_store()
+        logger.info("👌  Create Milvus Vector Store successfully!")
 
-        # create embedding function
-        self.jina_embedding_fn = JinaEmbeddingFunction(
+    def _init_vector_store(self) -> Milvus:
+        jina_embedding_function = JinaEmbeddings(
+            jina_api_key=SecretStr(self.settings.jina.jina_api_key),
             model_name=self.settings.jina.model_name,
-            api_key=self.settings.jina.jina_api_key,
-            task="retrieval.passage",
-            dimensions=1024,
+            session=None,
         )
-
-        self._init_collection_and_vector_store()
-
-    def _init_collection_and_vector_store(self):
-        """Check if collection exists, create if not, otherwise load it and create vector store."""
-
-        if self.client.has_collection(collection_name=self.collection_name):
-            logger.info(
-                f"Collection '{self.collection_name}' already exists. Loading collection."
+        connection_args = {
+            "uri": self.settings.milvus.uri, "token": self.settings.milvus.api_key,
+        }
+        try:
+            # Create Milvus vector store - will auto-create collection if it doesn't exist
+            vector_store = Milvus(
+                collection_name=self.settings.milvus.collection_name,
+                collection_description="Parsed paper vector store",
+                connection_args=connection_args,
+                embedding_function=jina_embedding_function,
+                consistency_level="Strong",
+                vector_field="dense", 
+                text_field="text",
+                builtin_function=BM25BuiltInFunction(),
+                drop_old=False,  # Don't drop existing collection
+                auto_id=True
             )
-            # Collection exists, it's automatically loaded when using MilvusClient
-        else:
-            logger.info(
-                f"Collection '{self.collection_name}' does not exist. Creating collection."
-            )
+            
+            # Log collection info
+            try:
+                col_name = self.settings.milvus.collection_name
+                logger.info(f"✅ Connected to Milvus collection '{col_name}'")
+            except Exception as log_error:
+                logger.debug(f"Could not log collection info: {log_error}")
+            
+            return vector_store
+            
+        except Exception as e:
+            logger.error(f"Failed to create/connect to Milvus Vector Store: {e}")
+            raise HTTPError(
+                message=f"Failed to create Milvus Vector Store: {e}")
 
-            # add field for collection
-            schema = self.client.create_schema()
-            schema.add_field(
-                "id", datatype=DataType.INT64, is_primary=True, auto_id=True
-            )
-            schema.add_field("document", datatype=DataType.VARCHAR, max_length=9000)
-            schema.add_field("dense", datatype=DataType.FLOAT_VECTOR, dim=1024)
-
-            # create index
-            index_params = self.client.prepare_index_params(
-                field_name="dense", index_type="AUTOINDEX", metric_type="COSINE"
-            )
-
-            self.client.create_collection(
-                collection_name=self.collection_name,
-                schema=schema,
-                index_params=index_params,
-            )
-            logger.info(f"Collection '{self.collection_name}' created successfully.")
-
-    async def index_document(self, chunks: List[Document]) -> Dict[str, List[Any]]:
-        logger.info(f"Indexing {len(chunks)} documents .....")
-
-        raw_text = []
-        embeddings = []
-        for chunk in chunks:
-            raw_text.append(chunk.page_content)
-            embedding = self.jina_embedding_fn.encode_documents([chunk.page_content])
-            # Convert numpy array to list for Milvus compatibility
-            embedding_list = (
-                embedding[0].tolist()
-                if hasattr(embedding[0], "tolist")
-                else list(embedding[0])
-            )
-            embeddings.append(embedding_list)
-
-            self.client.insert(
-                collection_name=self.collection_name,
-                data={"document": chunk.page_content, "dense": embedding_list},
-            )
-
-        return {"raw_text": raw_text, "embedding": embeddings}
+    def as_retriever(self, k: int = 4, ranker_type: str = 'weighted',
+                     ranker_weights: Optional[List[float]] = [0.6, 0.4]) -> BaseRetriever:
+        search_kwargs = {'k': k, 'expr': f'namespace == "{self.settings.milvus.namespace}"'}
+        return self.vector_store.as_retriever(
+            search_kwargs=search_kwargs, ranker_type=ranker_type,
+            ranker_params={'weights': ranker_weights}   
+        )
+    
+    async def index_document(self, chunks: List[Document]) -> List[str]:
+        try:
+            response = self.vector_store.add_documents(chunks)
+            logger.info(f'👌  Successfully added {len(response)} documents')
+            return response
+        except Exception as e:
+            raise HTTPError(message=f'Failed to add documents: {e}')
+        
+    

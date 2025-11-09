@@ -38,6 +38,6 @@ const createApiClient = (baseURL, customTimeout = 30000) => {
 
 export const apiUser = createApiClient(`${API_BASE_URL}/user`);
 export const apiChat = createApiClient(`${API_BASE_URL}/chat`, 10000); // 10s for chat operations
-export const apiAsk = createApiClient(`${API_BASE_URL}/ask`, 10000); // 10s for ask operations
+export const apiAsk = createApiClient(`${API_BASE_URL}/ask`, 600000); // 60s for ask operations (agent may take longer with tools)
 export const apiS3 = createApiClient(`${API_BASE_URL}/s3`, 10000); // 10s for S03 operations
 export const apiDoc = createApiClient(`${API_BASE_URL}/doc`, 600000); // 600s for document operations

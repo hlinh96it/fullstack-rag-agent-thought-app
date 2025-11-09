@@ -36,7 +36,8 @@ def get_pdf_pipeline_options(settings: Settings) -> PdfPipelineOptions:
         picture_description_options=picture_description_api,
         do_table_structure=parser_settings.do_table_structure,
         do_ocr=parser_settings.do_orc,
-        enable_remote_services=False,  # Disabled since we're not using remote API for picture descriptions
+        # Disabled since we're not using remote API for picture descriptions
+        enable_remote_services=False,
     )
 
 
@@ -69,5 +70,6 @@ def get_chunker(settings: Settings) -> HybridChunker:
             )
 
     return HybridChunker(
-        tokenizer=tokenizer, serializer_provider=CustomMDSerializerProvider()
+        tokenizer=tokenizer,
+        serializer_provider=CustomMDSerializerProvider()
     )

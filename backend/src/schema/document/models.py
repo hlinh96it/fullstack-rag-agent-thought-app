@@ -60,15 +60,18 @@ class Document(BaseModel):
     size: Optional[float] = Field(default=None, description="Size of the document (MB)")
     uploaded_date: Optional[int] = Field(default=None, description="Uploaded date")
 
-    indexed: Optional[bool] = Field(
-        default=None, description="Whether the document is indexed for searching"
-    )
-    chunked: Optional[bool | str] = Field(
-        default=None,
+    chunked: Optional[bool] = Field(
+        default=False,
         description="Whether the document is chunked (True/False) or 'processing' if chunking in progress",
     )
     chunk_error: Optional[str] = Field(
         default=None, description="Error message if chunking failed"
+    )
+    indexed: Optional[bool] = Field(
+        default=None, description="Whether the document is indexed for searching"
+    )
+    indexed_error: Optional[str] = Field(
+        default=None, description='Error message if indexing failed'
     )
 
 

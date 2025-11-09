@@ -16,7 +16,7 @@
 
 'use client';;
 import { Button } from '@repo/shadcn-ui/components/ui/button';
-import { cn } from '@repo/shadcn-ui/lib/utils';
+import { cn } from '@/lib/utils';
 import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
 import { createContext, useContext, useEffect, useState } from 'react';
 
