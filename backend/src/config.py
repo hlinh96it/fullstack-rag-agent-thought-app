@@ -117,6 +117,17 @@ class JinaEmbeddingClient(BaseConfigSettings):
     jina_api_key: str = ""
     model_name: str = ""
 
+class LangfuseClient(BaseConfigSettings):
+    model_config = SettingsConfigDict(
+        env_file=[".env", str(ENV_FILE_PATH)],
+        extra="ignore",
+        frozen=True,
+        env_nested_delimiter="LANGFUSE__",
+        case_sensitive=False,
+    )
+    public_key: str = ''
+    secret_key: str = ''
+    base_url: str = ''
 
 class Settings(BaseConfigSettings):
     openai: OpenAISettings = Field(default_factory=OpenAISettings)
@@ -126,4 +137,5 @@ class Settings(BaseConfigSettings):
 
     parser: ParserSettings = Field(default_factory=ParserSettings)
     jina: JinaEmbeddingClient = Field(default_factory=JinaEmbeddingClient)
+    langfuse: LangfuseClient = Field(default_factory=LangfuseClient)
     api_server: str = "http://localhost:8000"

@@ -9,16 +9,9 @@ class RAGPromptBuilder:
         self.system_prompt = self._load_system_prompt(default_experties)
         
     def _load_system_prompt(self, default_experties: str = 'normal') -> str:
-        if default_experties == 'arxiv':
+        if default_experties == 'normal':
             return (
-                "You are an AI assistant specialized in answering questions about "
-                "academic papers from arXiv. "
-                "IMPORTANT: You MUST ALWAYS use the available retriever tools to search the document database "
-                "before answering any question. Never answer from general knowledge alone. "
-                "Always call one of the retriever tools first to find relevant information. "
-                "Base your answer strictly on the retrieved context. If you cannot find relevant "
-                "information after searching, clearly state that. Keep answers concise and "
-                "cite the sources when possible."
+                "Call the model to generate a response based on the current state. Given the question, it will decide to retrieve using the retriever tool, or simply respond to the user."
             ) 
         else:
             return (

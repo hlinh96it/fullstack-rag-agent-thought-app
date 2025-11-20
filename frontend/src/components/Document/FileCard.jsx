@@ -17,7 +17,7 @@ const FileCard = ({ file, onDownload, onDelete }) => {
                         <p className="text-xs text-gray-500 mt-1 space-x-2">
                             {/* Chunking Status */}
                             {file.chunked === false ? (
-                                <Badge variant='secondary' className="bg-purple-500 text-white dark:bg-purple-600">
+                                <Badge variant='secondary' className="bg-orange-500 text-white dark:bg-orange-600">
                                     <Sparkles className="h-3 w-3 mr-1" />
                                     <Loader2 className="h-3 w-3 animate-spin mr-1" /> Chunking...
                                 </Badge>
@@ -38,7 +38,7 @@ const FileCard = ({ file, onDownload, onDelete }) => {
                                     <Loader2 className="h-3 w-3 animate-spin mr-1" /> Indexing...
                                 </Badge>
                             ) : file.indexed === true ? (
-                                <Badge variant='secondary' className="bg-blue-500 text-white dark:bg-blue-600">
+                                <Badge variant='secondary' className="bg-green-500 text-white dark:bg-green-600">
                                     <BadgeCheckIcon className="h-3 w-3 mr-1" /> Indexed
                                 </Badge>
                             ) : file.chunked === true && file.indexed !== false ? (

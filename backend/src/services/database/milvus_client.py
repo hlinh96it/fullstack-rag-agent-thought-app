@@ -26,9 +26,11 @@ class MilvusClient:
             model_name=self.settings.jina.model_name,
             session=None,
         )
+        logger.info(f'👌  Jina Embedding initialized!')
         connection_args = {
             "uri": self.settings.milvus.uri, "token": self.settings.milvus.api_key,
         }
+        
         try:
             # Create Milvus vector store - will auto-create collection if it doesn't exist
             vector_store = Milvus(

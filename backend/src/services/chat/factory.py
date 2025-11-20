@@ -2,7 +2,7 @@ from typing import Optional, List, Dict, Any
 from langchain.tools import BaseTool
 
 from .openai_client import OpenAIClient
-from .agent import AgenticRAG
+from src.services.agent.agent import AgenticRAG
 from src.config import Settings
 
 

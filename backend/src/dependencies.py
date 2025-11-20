@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import Depends, Request
 from src.services.chat.openai_client import OpenAIClient
-from src.services.chat.agent import AgenticRAG
+from src.services.agent.agent import AgenticRAG
 from src.services.database.mongo_client import MongoDBClient
 from src.services.database.aws_client import AWSClient
 from src.services.database.milvus_client import MilvusClient

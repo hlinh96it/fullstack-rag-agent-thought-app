@@ -15,8 +15,12 @@ logger = logging.getLogger(__name__)
 class OpenAIClient:
     prompt_builder = RAGPromptBuilder(default_experties="normal")
 
-    def __init__(self, settings: Settings, temperature: Optional[float] = None, 
-                 tools: Optional[List[BaseTool]] = None):
+    def __init__(
+        self,
+        settings: Settings,
+        temperature: Optional[float] = None,
+        tools: Optional[List[BaseTool]] = None,
+    ):
         self.settings = settings.openai
         self.openai_client: ChatOpenAI = ChatOpenAI(
             api_key=SecretStr(self.settings.openai_api_key),
@@ -27,14 +31,14 @@ class OpenAIClient:
         if tools is not None:
             self.openai_client = self.openai_client.bind_tools(tools)  # type: ignore
         self.system_prompt = OpenAIClient.prompt_builder.system_prompt
-    
+
     def with_structured_output(self, schema: Type[BaseModel]):
         """
         Bind a Pydantic model schema to the chat model for structured output.
-        
+
         Args:
             schema: A Pydantic BaseModel class defining the expected output structure
-            
+
         Returns:
             A runnable that will return instances of the provided schema
         """

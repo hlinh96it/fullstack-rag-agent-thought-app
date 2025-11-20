@@ -42,7 +42,7 @@ const FileUploadSection = ({ files, uploading, uploadProgress, onDrop, onUpload 
                 minSize={1024}
                 maxSize={1024 * 1024 * 5}
                 onDrop={onDrop}
-                onError={toast.error}
+                onError={(error) => toast.error(error?.message || 'File upload error')}
                 src={files}
                 className='flex max-h-30 w-full cursor-pointer'
             >

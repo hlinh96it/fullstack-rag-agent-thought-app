@@ -1,6 +1,7 @@
 from typing import TypedDict, List, Optional, Dict, Any
 
 from pydantic import BaseModel, Field
+from langgraph.graph import MessagesState
 
 
 class Message(BaseModel):
@@ -36,3 +37,13 @@ class AskResponse(BaseModel):
     
 class GradeDocument(BaseModel):
     binary_score: str = Field(description='Relevance score: "yes" if relevant or "no" if not relevant')
+
+
+class AgentState(MessagesState):
+    """Extended state to track search attempts and ensure proper retrieval."""
+    search_count: int
+    max_searches: int
+    rewrite_count: int
+    max_rewrites: int
+    processing_steps: List[Dict[str, Any]]
+    retrieved_documents: List[Dict[str, Any]]
