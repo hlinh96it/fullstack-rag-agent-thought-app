@@ -6,9 +6,7 @@ export const askApi = {
 		if (chatHistory && chatHistory.length > 0) {
 			payload.chat_history = chatHistory;
 		}
-		console.log('Sending request to /ask:', payload);
 		const response = await apiAsk.post("", payload);
-		console.log('Received response from /ask:', response);
 		// The backend now returns { answer, retrieved_documents, processing_steps, search_count, rewrite_count }
 		return response;
 	},

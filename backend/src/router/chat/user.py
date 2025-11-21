@@ -18,10 +18,13 @@ user_router = APIRouter(tags=["user"])
 )
 async def get_all_user(mongodb_client: MongoDependency):
     try:
-        response = await mongodb_client.collection.find().to_list()
+        response = await mongodb_client.collection.find().to_list(length=None)
         return UserCollection(users=response)
     except Exception as e:
-        raise HTTPException(status_code=501, detail=f"Failed to get user metadata: {e}")
+        logger.error(f"Failed to get user metadata: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to get user metadata: {str(e)}"
+        )
 
 
 @user_router.post(
@@ -76,18 +79,23 @@ async def create_user(
 
 
 @user_router.put(
-    '/{user_id}', description='Update user data', response_model=User,
-    response_model_by_alias=False
+    "/{user_id}",
+    description="Update user data",
+    response_model=User,
+    response_model_by_alias=False,
 )
-async def update_user(user_id: str, mongo_client: MongoDependency, user: dict = Body(...)):
+async def update_user(
+    user_id: str, mongo_client: MongoDependency, user: dict = Body(...)
+):
     new_user_data = {key: value for key, value in user.items() if value is not None}
-    
+
     update_user = await mongo_client.collection.find_one_and_update(
-        filter={'_id': ObjectId(user_id)}, update={'$set': new_user_data},
-        return_document=ReturnDocument.AFTER
+        filter={"_id": ObjectId(user_id)},
+        update={"$set": new_user_data},
+        return_document=ReturnDocument.AFTER,
     )
-    
+
     if update_user:
         return update_user
     else:
-        raise HTTPException(status_code=404, detail=f'User {user_id} not found')
+        raise HTTPException(status_code=404, detail=f"User {user_id} not found")

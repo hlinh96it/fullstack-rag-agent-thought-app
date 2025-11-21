@@ -6,6 +6,7 @@ import Sidebar from './components/Sidebar'
 import ChatBox from './components/ChatBox';
 import './assets/prism.css'
 import Document from './components/Document';
+import PostgresPage from './components/Postgres';
 
 
 const App = () => {
@@ -17,7 +18,8 @@ const App = () => {
                 <Sidebar />
                 <Routes>
                     <Route path='/' element={<ChatBox />} />
-                    <Route path='/documents' element={<Document/>}/>
+                    <Route path='/documents' element={<Document />} />
+                    <Route path='/postgres' element={<PostgresPage />} />
                 </Routes>
 
             </div>

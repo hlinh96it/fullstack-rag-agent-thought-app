@@ -8,7 +8,13 @@ from langgraph.prebuilt import ToolNode
 
 from src.config import Settings
 from src.services.chat.openai_client import OpenAIClient
-from src.schema.llm.models import AgentState, AskRequest, AskResponse, ProcessingStep, RetrievedDocument
+from src.schema.llm.models import (
+    AgentState,
+    AskRequest,
+    AskResponse,
+    ProcessingStep,
+    RetrievedDocument,
+)
 
 from .tools import Tools
 from .nodes import Nodes
@@ -122,7 +128,9 @@ class AgenticRAG:
         }
         for node_name in retriever_node_names:
             workflow.add_conditional_edges(
-                source=node_name, path=self.nodes._grade_documents, path_map=grading_path_map
+                source=node_name,
+                path=self.nodes._grade_documents,
+                path_map=grading_path_map,
             )
 
         workflow.add_edge("generate_answer", end_key=END)
@@ -132,10 +140,15 @@ class AgenticRAG:
 
         # Save graph visualization
         try:
-            graph.get_graph().draw_mermaid_png(
-                output_file_path="assets/agent_graph.png"
-            )
-            logger.info("✅ Agent graph visualization saved to assets/agent_graph.png")
+            if not os.path.exists("assets/agent_graph.png"):
+                graph.get_graph().draw_mermaid_png(
+                    output_file_path="assets/agent_graph.png"
+                )
+                logger.info(
+                    "✅ Agent graph visualization saved to assets/agent_graph.png"
+                )
+            else:
+                logger.info("✅ Agent graph visualization already saved")
         except Exception as e:
             logger.warning(f"Could not save graph visualization: {e}")
 
@@ -172,15 +185,15 @@ class AgenticRAG:
                 "retrieved_documents": [],
             }
 
-            response = self.graph.invoke(initial_state)
+            response = self.graph.invoke(
+                initial_state, config={"callbacks": [self.langfuse_tracer]}
+            )
             logger.info(f"Raw agent response: {response}")
 
             if not response or "messages" not in response or not response["messages"]:
                 logger.error("Agent returned empty response")
                 raise RuntimeError("Agent returned empty response")
 
-            logger.info(f"Response messages count: {len(response['messages'])}")
-            logger.info(f"Last message type: {type(response['messages'][-1])}")
             logger.info(
                 f"Search count: {response.get('search_count', 'N/A')}, Rewrite count: {response.get('rewrite_count', 'N/A')}"
             )

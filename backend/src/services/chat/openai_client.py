@@ -28,6 +28,7 @@ class OpenAIClient:
             temperature=temperature if temperature else self.settings.temperature,
             timeout=self.settings.timeout,
         )
+        
         if tools is not None:
             self.openai_client = self.openai_client.bind_tools(tools)  # type: ignore
         self.system_prompt = OpenAIClient.prompt_builder.system_prompt

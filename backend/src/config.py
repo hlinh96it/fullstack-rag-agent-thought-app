@@ -51,6 +51,25 @@ class MongoDBSettings(BaseConfigSettings):
     mongo_collection: str = ""
 
 
+class PostgreSQLDBSettings(BaseConfigSettings):
+    model_config = SettingsConfigDict(
+        env_file=[".env", str(ENV_FILE_PATH)],
+        env_prefix="POSTGRES__",
+        extra="ignore",
+        frozen=True,
+        case_sensitive=False,
+    )
+
+    driver_name: str = ""
+    username: str = ""
+    password: str = ""
+    host: str = "localhost"
+    port: Optional[int] = 5432
+    database_name: str = ""
+    pool_size: int = 20
+    max_overflow: int = 0
+
+
 class AWSSettings(BaseConfigSettings):
     model_config = SettingsConfigDict(
         env_file=[".env", str(ENV_FILE_PATH)],
@@ -69,8 +88,8 @@ class MilvusDBSettings(BaseConfigSettings):
     model_config = SettingsConfigDict(
         env_file=[".env", str(ENV_FILE_PATH)],
         extra="ignore",
+        env_prefix="MILVUS__",
         frozen=True,
-        env_nested_delimiter="MILVUS__",
         case_sensitive=False,
     )
     uri: str = ""
@@ -117,6 +136,7 @@ class JinaEmbeddingClient(BaseConfigSettings):
     jina_api_key: str = ""
     model_name: str = ""
 
+
 class LangfuseClient(BaseConfigSettings):
     model_config = SettingsConfigDict(
         env_file=[".env", str(ENV_FILE_PATH)],
@@ -125,13 +145,15 @@ class LangfuseClient(BaseConfigSettings):
         env_nested_delimiter="LANGFUSE__",
         case_sensitive=False,
     )
-    public_key: str = ''
-    secret_key: str = ''
-    base_url: str = ''
+    public_key: str = ""
+    secret_key: str = ""
+    base_url: str = ""
+
 
 class Settings(BaseConfigSettings):
     openai: OpenAISettings = Field(default_factory=OpenAISettings)
     mongo_db: MongoDBSettings = Field(default_factory=MongoDBSettings)
+    postgres_db: PostgreSQLDBSettings = Field(default_factory=PostgreSQLDBSettings)
     aws: AWSSettings = Field(default_factory=AWSSettings)
     milvus: MilvusDBSettings = Field(default_factory=MilvusDBSettings)
 

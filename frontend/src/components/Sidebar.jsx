@@ -3,7 +3,7 @@ import { useAppContext } from "../context/AppContext";
 
 import { Button } from "./ui/button";
 import {
-    SquarePlus, Search, Trash2, BadgeDollarSign, FileText,
+    SquarePlus, Search, Trash2, BadgeDollarSign, FileText, Database
 } from "lucide-react";
 import { Input } from "./ui/input";
 import { Card } from "./ui/card";
@@ -105,19 +105,36 @@ const Sidebar = () => {
             </div>
 
             {/* Uploaded Documents */}
-            <div className="relative mt-auto mb-4 p-0.5 rounded-lg bg-linear-to-r from-purple-300 via-blue-300 to-green-300">
-                <Card
-                    onClick={() => navigate("/documents")}
-                    className="flex flex-row items-center gap-3 p-4 hover:scale-103 transition-all cursor-pointer bg-white dark:bg-gray-900 rounded-lg"
-                >
-                    <FileText className="h-6 w-6 text-[#6B7280] shrink-0" />
-                    <div className="flex flex-col gap-1 flex-1 min-w-0">
-                        <p className="text-sm font-medium">
-                            Document: {user?.doc_list.length || 0}
-                        </p>
-                        <p className="text-xs text-gray-400">Click to add document</p>
-                    </div>
-                </Card>
+            <div className="relative mt-auto mb-4 space-y-2">
+                <div className="p-0.5 rounded-lg bg-linear-to-r from-purple-300 via-blue-300 to-green-300">
+                    <Card
+                        onClick={() => navigate("/documents")}
+                        className="flex flex-row items-center gap-3 p-4 hover:scale-103 transition-all cursor-pointer bg-white dark:bg-gray-900 rounded-lg"
+                    >
+                        <FileText className="h-6 w-6 text-[#6B7280] shrink-0" />
+                        <div className="flex flex-col gap-1 flex-1 min-w-0">
+                            <p className="text-sm font-medium">
+                                Document: {user?.doc_list.length || 0}
+                            </p>
+                            <p className="text-xs text-gray-400">Click to add document</p>
+                        </div>
+                    </Card>
+                </div>
+
+                <div className="p-0.5 rounded-lg bg-linear-to-r from-blue-300 via-indigo-300 to-purple-300">
+                    <Card
+                        onClick={() => navigate("/postgres")}
+                        className="flex flex-row items-center gap-3 p-4 hover:scale-103 transition-all cursor-pointer bg-white dark:bg-gray-900 rounded-lg"
+                    >
+                        <Database className="h-6 w-6 text-[#6B7280] shrink-0" />
+                        <div className="flex flex-col gap-1 flex-1 min-w-0">
+                            <p className="text-sm font-medium">
+                                PostgreSQL Data
+                            </p>
+                            <p className="text-xs text-gray-400">Manage CSV tables</p>
+                        </div>
+                    </Card>
+                </div>
             </div>
         </div>
     );

@@ -6,6 +6,18 @@ from ..document.models import Document
 PyObjectId = Annotated[str, BeforeValidator(str)]
 
 
+class PostgresTable(BaseModel):
+    """PostgreSQL table metadata"""
+
+    table_name: str = Field(..., description="Name of the table in PostgreSQL")
+    original_filename: str = Field(..., description="Original CSV filename")
+    row_count: int = Field(..., description="Number of rows in the table")
+    column_count: int = Field(..., description="Number of columns in the table")
+    columns: List[str] = Field(default=[], description="List of column names")
+    created_at: Optional[int] = None
+    updated_at: Optional[int] = None
+
+
 class Message(BaseModel):
     """New message"""
 
@@ -38,10 +50,13 @@ class Chat(BaseModel):
 
 class User(BaseModel):
     id: Optional[PyObjectId] = Field(alias="_id", default=None, description="User ID")
-    name: Optional[str] = Field(description="User name")
+    name: Optional[str] = Field(default=None, description="User name")
     chat_list: Optional[List[Chat]] = Field(default=[], description="List of all chats")
     doc_list: List[Document] = Field(
         default=[], description="List of uploaded documents"
+    )
+    table_list: List[PostgresTable] = Field(
+        default=[], description="List of uploaded PostgreSQL tables"
     )
 
     model_config = ConfigDict(populate_by_name=True, arbitrary_types_allowed=True)

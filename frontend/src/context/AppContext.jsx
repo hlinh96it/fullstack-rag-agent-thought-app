@@ -108,17 +108,26 @@ export const AppContextProvider = ({ children }) => {
             setChats(user.chat_list)
 
             // If there's a selected chat, update it with fresh data from user.chat_list
-            if (selectedChat) {
+            // Use functional update to avoid dependency on selectedChat
+            setSelectedChat(prevSelectedChat => {
+                if (!prevSelectedChat) return null
+
                 const updatedSelectedChat = user.chat_list.find(
-                    chat => chat._id === selectedChat._id || chat.id === selectedChat.id
+                    chat => chat._id === prevSelectedChat._id || chat.id === prevSelectedChat.id
                 )
+
+                // Only update if the chat data actually changed (to prevent unnecessary re-renders)
                 if (updatedSelectedChat) {
-                    setSelectedChat(updatedSelectedChat)
-                } else {
-                    // Chat was deleted, clear selection
-                    setSelectedChat(null)
+                    // Deep comparison of message_list to avoid updates when content is the same
+                    if (JSON.stringify(updatedSelectedChat) === JSON.stringify(prevSelectedChat)) {
+                        return prevSelectedChat
+                    }
+                    return updatedSelectedChat
                 }
-            }
+
+                // Chat was deleted, clear selection
+                return null
+            })
         } else {
             setChats([])
             setSelectedChat(null)

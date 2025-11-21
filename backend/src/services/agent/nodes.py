@@ -7,22 +7,29 @@ from src.config import Settings
 from src.schema.llm.models import AgentState, GradeDocument
 from src.services.chat.openai_client import OpenAIClient
 
+from .prompts import AgentPrompt
+
 import time
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 
 class Nodes:
     def __init__(
-        self, settings: Settings, response_model: OpenAIClient, grader_model: OpenAIClient,
-        langfuse_tracer: CallbackHandler
+        self,
+        settings: Settings,
+        response_model: OpenAIClient,
+        grader_model: OpenAIClient,
+        langfuse_tracer: CallbackHandler,
     ):
         self.settings = settings
         self.response_model = response_model
         self.grader_model = grader_model
         self.langfuse_tracer = langfuse_tracer
-    
+        self.agent_prompts = AgentPrompt()
+
     def generate_query_or_response(self, state: AgentState):
         """
         Generate a query or response based on the current conversation state.
@@ -124,7 +131,7 @@ class Nodes:
                 f"❌ Failed to generate query/response: {str(e)}", exc_info=True
             )
             raise RuntimeError(f"Failed to generate response: {str(e)}") from e
-        
+
     def _rewrite_question(self, state: AgentState) -> Dict:
         """Rewrite the question to improve retrieval, maintaining core intent."""
         processing_steps = state.get("processing_steps", [])
@@ -166,22 +173,10 @@ class Nodes:
         )
 
         # Improved rewrite prompt that maintains semantic core
-        rewrite_prompt = (
-            "Analyze the following question and rephrase it to make it clearer and more specific "
-            "for document retrieval, while maintaining the core intent.\n\n"
-            "Original question: {question}\n\n"
-            "Guidelines for rewriting:\n"
-            "- Keep the main topic and intent unchanged\n"
-            "- Add synonyms or related terms that might appear in documents\n"
-            "- Make it more general if it's too specific, or add context if it's too vague\n"
-            "- Use common terminology that would appear in formal documents\n"
-            "- Keep it concise (1-2 sentences maximum)\n\n"
-            "Rewritten question:"
-        )
-
-        prompt = rewrite_prompt.format(question=question)
+        prompt = self.agent_prompts.rewrite_prompt.format(question=question)
         response = self.response_model.openai_client.invoke(
-            input=[{"role": "user", "content": prompt}]
+            input=[{"role": "user", "content": prompt}],
+            config={"callbacks": [self.langfuse_tracer]},
         )
         logger.info(f"Original question: {question}")
         logger.info(f"Rewritten question: {response.content}")
@@ -275,7 +270,7 @@ class Nodes:
 
         # Use grader model (which has no tools bound) for clean text generation
         response = self.grader_model.openai_client.invoke(
-            [{"role": "user", "content": prompt}]
+            [{"role": "user", "content": prompt}], config={"callbacks": [self.langfuse_tracer]}
         )
 
         logger.info(f"✅ Generated answer: {response.content[:200]}...")
@@ -358,26 +353,13 @@ class Nodes:
                 return "rewrite_question"
 
         # Use more lenient grading prompt
-        grade_prompt = (
-            "You are a grader assessing relevance of retrieved documents to a user question. \n"
-            "Here is the retrieved content: \n\n {context} \n\n"
-            "Here is the user question: {question} \n\n"
-            "Grade as 'yes' if ANY of the following are true:\n"
-            "- The content contains keywords related to the question\n"
-            "- The content discusses topics related to the question's domain\n"
-            "- The content provides context that could help answer the question\n"
-            "- The content is from a similar subject area as the question\n\n"
-            "Only grade as 'no' if the content is completely unrelated or off-topic.\n"
-            "Be lenient - partial relevance is acceptable.\n"
-            "Respond with 'yes' or 'no'."
-        )
-        prompt = grade_prompt.format(
+        prompt = self.agent_prompts.grade_prompt.format(
             question=question, context=context[:2000]
         )  # Limit context to avoid token limits
 
         try:
             response = self.grader_model.with_structured_output(GradeDocument).invoke(
-                [{"role": "user", "content": prompt}]
+                [{"role": "user", "content": prompt}], config={"callbacks": [self.langfuse_tracer]}
             )
 
             # Grade the document and route accordingly
@@ -437,11 +419,4 @@ class Nodes:
                     }
                 )
                 return "rewrite_question"
-        
-        
-        
-        
-        
-        
-        
-        
+

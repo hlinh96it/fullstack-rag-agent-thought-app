@@ -1,5 +1,6 @@
 from src.config import Settings
 from .mongo_client import MongoDBClient
+from .postgres_client import PostgreSQLDBClient
 from .aws_client import AWSClient
 from .milvus_client import MilvusClient
 
@@ -12,12 +13,17 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def make_database_client(settings: Settings):
+def make_mongo_database_client(settings: Settings):
     return MongoDBClient(settings)
+
+
+def make_postgres_database_client(settings: Settings):
+    return PostgreSQLDBClient(settings=settings)
 
 
 def make_aws_client(settings: Settings):
     return AWSClient(settings)
+
 
 def make_milvus_client(settings: Settings):
     return MilvusClient(settings)

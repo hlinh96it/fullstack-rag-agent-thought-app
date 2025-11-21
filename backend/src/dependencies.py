@@ -4,6 +4,7 @@ from fastapi import Depends, Request
 from src.services.chat.openai_client import OpenAIClient
 from src.services.agent.agent import AgenticRAG
 from src.services.database.mongo_client import MongoDBClient
+from src.services.database.postgres_client import PostgreSQLDBClient
 from src.services.database.aws_client import AWSClient
 from src.services.database.milvus_client import MilvusClient
 from src.services.parser.parser import ParserService
@@ -20,6 +21,9 @@ def get_agent_client(request: Request) -> AgenticRAG:
 def get_mongo_client(request: Request) -> MongoDBClient:
     return request.app.state.mongo_client
 
+def get_postgres_client(request: Request) -> PostgreSQLDBClient:
+    return request.app.state.postgres_client
+
 
 def get_aws_client(request: Request) -> AWSClient:
     return request.app.state.aws_client
@@ -34,6 +38,7 @@ def get_document_parser_service(request: Request) -> ParserService:
 ChatDependency = Annotated[OpenAIClient, Depends(get_chat_client)]
 AgentDependency = Annotated[AgenticRAG, Depends(get_agent_client)]
 MongoDependency = Annotated[MongoDBClient, Depends(get_mongo_client)]
+PostgreSQLDependency = Annotated[PostgreSQLDBClient, Depends(get_postgres_client)]
 AWSDependency = Annotated[AWSClient, Depends(get_aws_client)]
 ParserDependency = Annotated[ParserService, Depends(get_document_parser_service)]
 MilvusDependency = Annotated[MilvusClient, Depends(get_milvus_client)]

@@ -6,8 +6,6 @@ import os
 from pathlib import Path
 from datetime import datetime
 
-from langchain_core.documents import Document as LCDocument
-
 from src.schema.document.models import Document, ParsedDocument
 from src.schema.user.models import User
 from src.dependencies import MongoDependency, ParserDependency, AWSDependency, MilvusDependency
