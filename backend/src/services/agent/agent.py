@@ -17,7 +17,7 @@ from src.schema.llm.models import (
 )
 
 from .tools import Tools
-from .nodes import Nodes
+from .orchestrator import Nodes
 
 import logging
 

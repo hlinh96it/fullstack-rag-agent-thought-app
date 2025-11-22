@@ -41,8 +41,12 @@ class Nodes:
         self.rewrite_node = QuestionRewriteNode(
             settings, response_model, langfuse_tracer
         )
-        self.answer_node = AnswerGenerationNode(settings, grader_model, langfuse_tracer)
-        self.grading_node = DocumentGradingNode(settings, grader_model, langfuse_tracer)
+        self.answer_node = AnswerGenerationNode(
+            settings, grader_model, langfuse_tracer
+        )
+        self.grading_node = DocumentGradingNode(
+            settings, grader_model, langfuse_tracer
+        )
 
     def generate_query_or_response(self, state: AgentState) -> Dict:
         """Generate a query or response based on the current conversation state."""
@@ -59,3 +63,4 @@ class Nodes:
     def _grade_documents(self, state: AgentState) -> str:
         """Determine whether the retrieved documents are relevant to the question."""
         return self.grading_node.execute(state)
+
