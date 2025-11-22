@@ -3,9 +3,10 @@ import { useAppContext } from "@/context/AppContext";
 import { postgresApi } from "@/api/postgres";
 import CsvUploadSection from "./CsvUploadSection";
 import TableListSection from "./TableListSection";
-import { Database, RefreshCw, Plus, Loader2, RefreshCcw } from "lucide-react";
+import { Database, RefreshCw, Plus, Loader2, RefreshCcw, Trash2, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
     Dialog,
@@ -22,9 +23,10 @@ const PostgresPage = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [isSyncing, setIsSyncing] = useState(false);
     const [activeTab, setActiveTab] = useState("all");
-    const [createDbDialogOpen, setCreateDbDialogOpen] = useState(false);
+    const [manageDbDialogOpen, setManageDbDialogOpen] = useState(false);
     const [newDatabaseName, setNewDatabaseName] = useState("");
     const [isCreatingDb, setIsCreatingDb] = useState(false);
+    const [isDeletingDb, setIsDeletingDb] = useState(null);
 
     const fetchDatabases = async () => {
         if (!user?._id) return;
@@ -92,13 +94,35 @@ const PostgresPage = () => {
             await postgresApi.createDatabase(user._id, newDatabaseName.trim());
             toast.success(`Database '${newDatabaseName}' created successfully!`);
             setNewDatabaseName("");
-            setCreateDbDialogOpen(false);
             await fetchDatabases();
         } catch (error) {
             console.error("Failed to create database:", error);
             toast.error(error.message || "Failed to create database");
         } finally {
             setIsCreatingDb(false);
+        }
+    };
+
+    const handleDeleteDatabase = async (databaseName) => {
+        if (!user?._id) {
+            toast.error("User not found");
+            return;
+        }
+
+        if (!confirm(`Are you sure you want to delete database '${databaseName}'? This action cannot be undone.`)) {
+            return;
+        }
+
+        setIsDeletingDb(databaseName);
+        try {
+            await postgresApi.deleteDatabase(user._id, databaseName);
+            toast.success(`Database '${databaseName}' deleted successfully!`);
+            await fetchDatabases();
+        } catch (error) {
+            console.error("Failed to delete database:", error);
+            toast.error(error.message || "Failed to delete database");
+        } finally {
+            setIsDeletingDb(null);
         }
     };
 
@@ -136,9 +160,9 @@ const PostgresPage = () => {
                 <div className="flex items-center justify-between">
                     <h2 className='text-2xl font-semibold'>Upload CSV to PostgreSQL</h2>
                     <div className="flex gap-2">
-                        <Button variant="outline" size="sm" onClick={() => setCreateDbDialogOpen(true)}>
-                            <Plus className="h-4 w-4 mr-2" />
-                            New Database
+                        <Button variant="outline" size="sm" onClick={() => setManageDbDialogOpen(true)}>
+                            <Settings className="h-4 w-4 mr-2" />
+                            Manage Databases
                         </Button>
                         <Button
                             variant="outline"
@@ -203,61 +227,135 @@ const PostgresPage = () => {
                 </Tabs>
             </div>
 
-            {/* Create Database Dialog */}
-            <Dialog open={createDbDialogOpen} onOpenChange={setCreateDbDialogOpen}>
-                <DialogContent>
+            {/* Manage Databases Dialog */}
+            <Dialog open={manageDbDialogOpen} onOpenChange={setManageDbDialogOpen}>
+                <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
-                            <Database className="h-5 w-5 text-blue-500" />
-                            Create New Database
+                            <Settings className="h-5 w-5 text-blue-500" />
+                            Manage Databases
                         </DialogTitle>
                         <DialogDescription>
-                            Enter a name for your new PostgreSQL database. The name will be sanitized automatically.
+                            View all your databases, check their information, and manage them.
                         </DialogDescription>
                     </DialogHeader>
 
                     <div className="space-y-4 mt-4">
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Database Name</label>
-                            <Input
-                                value={newDatabaseName}
-                                onChange={(e) => setNewDatabaseName(e.target.value)}
-                                placeholder="my_database"
-                                disabled={isCreatingDb}
-                                onKeyDown={(e) => {
-                                    if (e.key === "Enter" && !isCreatingDb) {
-                                        handleCreateDatabase();
-                                    }
-                                }}
-                            />
+                        {/* Add New Database Section */}
+                        <Card className="border-dashed">
+                            <CardHeader className="pb-3">
+                                <CardTitle className="text-sm font-medium">Create New Database</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="flex gap-2">
+                                    <Input
+                                        value={newDatabaseName}
+                                        onChange={(e) => setNewDatabaseName(e.target.value)}
+                                        placeholder="Enter database name..."
+                                        disabled={isCreatingDb}
+                                        onKeyDown={(e) => {
+                                            if (e.key === "Enter" && !isCreatingDb) {
+                                                handleCreateDatabase();
+                                            }
+                                        }}
+                                        className="flex-1"
+                                    />
+                                    <Button
+                                        onClick={handleCreateDatabase}
+                                        disabled={isCreatingDb || !newDatabaseName.trim()}
+                                        size="sm"
+                                    >
+                                        {isCreatingDb ? (
+                                            <>
+                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                Creating...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Plus className="mr-2 h-4 w-4" />
+                                                Create
+                                            </>
+                                        )}
+                                    </Button>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Database List */}
+                        <div className="space-y-3">
+                            <h4 className="text-sm font-semibold text-gray-700">
+                                Your Databases ({databases.length})
+                            </h4>
+
+                            {databases.length === 0 ? (
+                                <Card>
+                                    <CardContent className="pt-6 text-center text-gray-500">
+                                        <Database className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                                        <p>No databases found</p>
+                                        <p className="text-xs mt-1">Create a new database to get started</p>
+                                    </CardContent>
+                                </Card>
+                            ) : (
+                                <div className="grid gap-3 md:grid-cols-2">
+                                    {databases.map((db) => (
+                                        <Card key={db.database_name} className="relative">
+                                            <CardHeader className="pb-3">
+                                                <div className="flex items-start justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <Database className="h-4 w-4 text-blue-500" />
+                                                        <CardTitle className="text-base">{db.database_name}</CardTitle>
+                                                    </div>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => handleDeleteDatabase(db.database_name)}
+                                                        disabled={isDeletingDb === db.database_name}
+                                                        className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                                    >
+                                                        {isDeletingDb === db.database_name ? (
+                                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                                        ) : (
+                                                            <Trash2 className="h-4 w-4" />
+                                                        )}
+                                                    </Button>
+                                                </div>
+                                                <CardDescription className="text-xs">
+                                                    {db.table_list?.length || 0} table(s)
+                                                </CardDescription>
+                                            </CardHeader>
+                                            <CardContent className="pt-0">
+                                                <div className="space-y-2 text-xs text-gray-600">
+                                                    {db.table_list && db.table_list.length > 0 ? (
+                                                        <div>
+                                                            <p className="font-medium mb-1">Tables:</p>
+                                                            <ul className="list-disc list-inside space-y-0.5 max-h-20 overflow-y-auto">
+                                                                {db.table_list.map((table) => (
+                                                                    <li key={table.table_name} className="text-gray-500">
+                                                                        {table.table_name}
+                                                                        <span className="text-gray-400 ml-1">
+                                                                            ({table.row_count || 0} rows)
+                                                                        </span>
+                                                                    </li>
+                                                                ))}
+                                                            </ul>
+                                                        </div>
+                                                    ) : (
+                                                        <p className="text-gray-400 italic">No tables in this database</p>
+                                                    )}
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    ))}
+                                </div>
+                            )}
                         </div>
 
-                        <div className="flex justify-end gap-2">
+                        <div className="flex justify-end pt-4 border-t">
                             <Button
                                 variant="outline"
-                                onClick={() => {
-                                    setCreateDbDialogOpen(false);
-                                    setNewDatabaseName("");
-                                }}
-                                disabled={isCreatingDb}
+                                onClick={() => setManageDbDialogOpen(false)}
                             >
-                                Cancel
-                            </Button>
-                            <Button
-                                onClick={handleCreateDatabase}
-                                disabled={isCreatingDb || !newDatabaseName.trim()}
-                            >
-                                {isCreatingDb ? (
-                                    <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        Creating...
-                                    </>
-                                ) : (
-                                    <>
-                                        <Plus className="mr-2 h-4 w-4" />
-                                        Create Database
-                                    </>
-                                )}
+                                Close
                             </Button>
                         </div>
                     </div>
