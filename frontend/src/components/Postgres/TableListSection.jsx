@@ -36,7 +36,10 @@ const TableListSection = ({ tables, isLoading, onTableDeleted, userId }) => {
         setTableData(null);
 
         try {
-            const response = await postgresApi.getTableData(table.table_name);
+            const response = await postgresApi.getTableData(
+                table.table_name,
+                table.database_name
+            );
             setTableData(response);
         } catch (error) {
             console.error("Failed to fetch table data:", error);
@@ -49,21 +52,16 @@ const TableListSection = ({ tables, isLoading, onTableDeleted, userId }) => {
     const handleDeleteTable = async (e, table) => {
         e.stopPropagation(); // Prevent card click
 
-        if (!confirm(`Are you sure you want to delete table "${table.table_name}"? This action cannot be undone.`)) {
-            return;
-        }
-
         setDeletingTable(table.table_name);
 
         try {
-            await postgresApi.deleteTable(userId, table.table_name);
+            await postgresApi.deleteTable(userId, table.database_name, table.table_name);
             toast.success(`Table "${table.table_name}" deleted successfully`);
 
             if (onTableDeleted) {
                 onTableDeleted();
             }
         } catch (error) {
-            console.error("Failed to delete table:", error);
             toast.error(error.message || "Failed to delete table");
         } finally {
             setDeletingTable(null);
@@ -104,8 +102,8 @@ const TableListSection = ({ tables, isLoading, onTableDeleted, userId }) => {
                     >
                         <CardHeader className="pb-2">
                             <div className="flex justify-between items-start gap-2">
-                                <CardTitle className="text-lg font-bold flex items-center gap-2 break-words flex-1">
-                                    <TableIcon className="h-5 w-5 text-blue-500 flex-shrink-0" />
+                                <CardTitle className="text-lg font-bold flex items-center gap-2 wrap-break-word flex-1">
+                                    <TableIcon className="h-5 w-5 text-blue-500 shrink-0" />
                                     <span className="break-all">{table.table_name}</span>
                                 </CardTitle>
                                 <Button
@@ -122,22 +120,28 @@ const TableListSection = ({ tables, isLoading, onTableDeleted, userId }) => {
                                     )}
                                 </Button>
                             </div>
-                            <p className="text-xs text-muted-foreground flex items-center gap-1 break-words">
-                                <FileText className="h-3 w-3 flex-shrink-0" />
-                                <span className="break-all">Original: {table.original_filename}</span>
-                            </p>
+                            <div className="flex flex-col gap-1">
+                                {/* <p className="text-xs text-muted-foreground flex items-center gap-1 wrap-break-word">
+                                    <Database className="h-3 w-3 shrink-0" />
+                                    <span className="font-medium">Database:</span>
+                                    <span className="break-all">{table.database_name || "rag_db"}</span>
+                                </p>
+                                <p className="text-xs text-muted-foreground flex items-center gap-1 wrap-break-word">
+                                    <FileText className="h-3 w-3 shrink-0" />
+                                    <span className="break-all">Original: {table.original_filename}</span>
+                                </p> */}
+                            </div>
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-3">
                                 <div className="flex justify-between items-center text-sm">
                                     <span className="text-muted-foreground flex items-center gap-1">
                                         <Layers className="h-3 w-3" /> Rows:
+                                        <span className="font-medium">{table.row_count.toLocaleString()}</span>
                                     </span>
-                                    <span className="font-medium">{table.row_count.toLocaleString()}</span>
-                                </div>
-                                <div className="flex justify-between items-center text-sm">
-                                    <span className="text-muted-foreground">Columns:</span>
-                                    <span className="font-medium">{table.column_count}</span>
+                                    <span className="text-muted-foreground">Columns:
+                                        <span className="font-medium">{table.column_count}</span>
+                                    </span>
                                 </div>
 
                                 <div className="pt-2 border-t mt-2">
@@ -173,7 +177,7 @@ const TableListSection = ({ tables, isLoading, onTableDeleted, userId }) => {
                 <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2 break-all">
-                            <TableIcon className="h-5 w-5 text-blue-500 flex-shrink-0" />
+                            <TableIcon className="h-5 w-5 text-blue-500 shrink-0" />
                             {selectedTable?.table_name}
                         </DialogTitle>
                         <DialogDescription className="break-all">

@@ -18,6 +18,17 @@ class PostgresTable(BaseModel):
     updated_at: Optional[int] = None
 
 
+class PostgresDatabase(BaseModel):
+    """PostgreSQL database metadata"""
+
+    database_name: str = Field(..., description="Name of the database in PostgreSQL")
+    table_list: List[PostgresTable] = Field(
+        default=[], description="List of tables in this database"
+    )
+    created_at: Optional[int] = None
+    updated_at: Optional[int] = None
+
+
 class Message(BaseModel):
     """New message"""
 
@@ -55,8 +66,8 @@ class User(BaseModel):
     doc_list: List[Document] = Field(
         default=[], description="List of uploaded documents"
     )
-    table_list: List[PostgresTable] = Field(
-        default=[], description="List of uploaded PostgreSQL tables"
+    database_list: List[PostgresDatabase] = Field(
+        default=[], description="List of PostgreSQL databases with their tables"
     )
 
     model_config = ConfigDict(populate_by_name=True, arbitrary_types_allowed=True)

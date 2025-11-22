@@ -3,13 +3,15 @@ import { Dropzone, DropzoneContent, DropzoneEmptyState } from '@/components/ui/s
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { postgresApi } from "@/api/postgres";
 import { Loader2, Upload, Database, CheckCircle2 } from "lucide-react";
 
-const CsvUploadSection = ({ userId, onUploadSuccess }) => {
+const CsvUploadSection = ({ userId, onUploadSuccess, databases }) => {
     const [files, setFiles] = useState([]);
     const [tableName, setTableName] = useState("");
+    const [databaseName, setDatabaseName] = useState("rag_db");
     const [isUploading, setIsUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
 
@@ -36,10 +38,11 @@ const CsvUploadSection = ({ userId, onUploadSuccess }) => {
                 userId,
                 file,
                 tableName,
+                databaseName,
                 (progress) => setUploadProgress(progress)
             );
 
-            toast.success(`Table '${response.table_name}' created successfully!`);
+            toast.success(`Table '${response.table_name}' created successfully in ${databaseName}!`);
             setFiles([]);
             setTableName("");
             setUploadProgress(0);
@@ -61,7 +64,7 @@ const CsvUploadSection = ({ userId, onUploadSuccess }) => {
             <Dropzone
                 accept={{ 'text/csv': ['.csv'] }}
                 maxFiles={1}
-                maxSize={1024 * 1024 * 10} // 10MB
+                maxSize={1024 * 1024 * 20} // 10MB
                 onDrop={handleDrop}
                 onError={(error) => toast.error(error?.message || 'File upload error')}
                 src={files}
@@ -73,14 +76,34 @@ const CsvUploadSection = ({ userId, onUploadSuccess }) => {
 
             {/* Table Name Input */}
             {files.length > 0 && (
-                <div className="space-y-2">
-                    <label className="text-sm font-medium">Table Name (Optional)</label>
-                    <Input
-                        value={tableName}
-                        onChange={(e) => setTableName(e.target.value)}
-                        placeholder="Enter table name or use filename"
-                        disabled={isUploading}
-                    />
+                <div className="space-y-4">
+                    <div className="flex items-center gap-4">
+                        <label className="text-sm font-medium">Database</label>
+                        <Select value={databaseName} onValueChange={setDatabaseName} disabled={isUploading}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select database" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {databases && databases.length > 0 ? (
+                                    databases.map((db) => (
+                                        <SelectItem key={db.name} value={db.name}>
+                                            {db.name} ({db.size})
+                                        </SelectItem>
+                                    ))
+                                ) : (
+                                    <SelectItem value="rag_db">rag_db (default)</SelectItem>
+                                )}
+                            </SelectContent>
+                        </Select>
+
+                        <label className="text-sm font-medium">Table Name (Optional)</label>
+                        <Input
+                            value={tableName}
+                            onChange={(e) => setTableName(e.target.value)}
+                            placeholder="Enter table name or use filename"
+                            disabled={isUploading}
+                        />
+                    </div>
                 </div>
             )}
 
